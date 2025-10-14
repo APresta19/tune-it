@@ -1,0 +1,23 @@
+:root {
+  color-scheme: light dark;
+
+  --white: #FEF3E2;
+  --primary: #FAB12F;
+  --secondary: #FA812F;
+  --tertiary: #DD0303;
+}
+
+html, body, #root
+{
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body 
+{
+  color: #242424;
+  background-color: #e3d8c8;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
