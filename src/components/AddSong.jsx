@@ -5,6 +5,8 @@ import Song from './Song';
 function AddSong() {
     const [searchValue, setSearchValue] = useState("");
     const [songs, setSongs] = useState([]);
+    const [selectedSongs, setSelectedSongs] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
 
     const API_URL = import.meta.env.VITE_API_URL;
     const params = new URLSearchParams(window.location.search);
@@ -29,6 +31,14 @@ function AddSong() {
    const handleSearchChange = (e) => {
         const value = e.target.value;
         setSearchValue(value);
+
+        if(value.trim() === "") {
+            setIsSearching(false);
+            setSongs([]);
+            return;
+        }
+
+        setIsSearching(true);
         fetchSongs(value);
     };
 
@@ -40,6 +50,7 @@ function AddSong() {
         
         if(!response || !response.tracks) {
             console.error("Invalid response from Spotify API");
+            setIsSearching(false);
             return;
         }
 
@@ -50,10 +61,35 @@ function AddSong() {
         }));
 
         setSongs(songList);
-        console.log(songList);
+        setIsSearching(true);
     }
 
+    function handleSongClick(event) 
+    {
+        const songElement = event.currentTarget;
 
+        // Get the title and artist (can also use querySelector)
+        const title = songElement.dataset.title;
+        const artist = songElement.dataset.artist;
+        const id = songElement.dataset.id;
+
+        const newSong = { id, title, artist };
+
+        // Check if the song is already in the selectedSongs array and add
+        if (!selectedSongs.some(song => song.id === id)) {
+            setSelectedSongs([...selectedSongs, newSong]);
+        }
+
+        console.log("Selected songs: ", selectedSongs);
+    }
+    function handleSongRemove(event) {
+        const buttonElement = event.currentTarget;
+        const songElement = buttonElement.closest('.added-song');
+        const id = songElement.dataset.id;
+
+        const updatedSongs = selectedSongs.filter(song => song.id !== id);
+        setSelectedSongs(updatedSongs);
+    }
 
     return (
         <div className="add-container">
@@ -62,12 +98,30 @@ function AddSong() {
             </a>
 
             <h1>Add Song</h1>
-            <input type="text" placeholder="Song Title" value={searchValue} onChange={handleSearchChange}/>
+            <input id="add-search" type="text" placeholder="Song Title" value={searchValue} onChange={handleSearchChange}/>
 
-            <div className="songs-list">
+            {songs.length > 0 && <div className="songs-list">
                 {songs.map((song) => {
-                    return<Song className="song-container" key={song.id} title={song.title} artist={song.artist}/>
+                    return <Song key={song.id}
+                                 onClick={handleSongClick} 
+                                 id={song.id}
+                                 title={song.title}
+                                 artist={song.artist}/>;
                 })}
+            </div>}
+            <hr></hr>
+            <div className="added-songs">
+                <h2>Added Songs</h2>
+                {selectedSongs.map((songDiv, index) => 
+                    <div key={index} className="added-song" data-id={songDiv.id}>
+                        <div id="added-song-left">
+                            <h4>{songDiv.title}</h4>
+                            <p>{songDiv.artist}</p>
+                        </div>
+                        <div id="added-song-right">
+                            <button onClick={handleSongRemove}>Remove</button>
+                        </div>
+                    </div>)}
             </div>
         </div>
     )

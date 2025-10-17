@@ -4,25 +4,107 @@
   align-items: center;
   background-color: var(--white);
   width: 70%;
-  height: 100%;
   border: 1px solid var(--primary);
   border-radius: 8px;
+  min-height: fit-content;
+  padding: 20px;
 }
 
-#root
-{
+#root {
   display: flex;
   justify-content: center;
+  min-height: 100vh;
+  padding: 20px 0;
 }
 
+#add-search {
+  width: 80%;
+  padding: 10px;
+  margin-top: 15px;
+  border: 1px solid var(--primary);
+  background-color: var(--darker-white);
+  color: black;
+  border-radius: 5px;
+  font-size: 16px;
+}
+
+.added-songs {
+  width: 80%;
+  margin-top: 20px;
+  padding-bottom: 20px;
+}
+
+.added-song
+{
+    background-color: var(--white);
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    width: 100%;
+    padding: 30px 10px;
+    height: 30px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0px;
+}
+.added-song h4,
+.added-song p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+}
+
+
 .songs-list {
-  width: 100%;
+  width: 80%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   margin-top: 20px;
-  max-height: 60vh;
+  height: 400px;
+  min-height: 400px;
   overflow-y: auto;
   padding-right: 5px;
+  border: 1px solid var(--primary);
+  background-color: var(--darker-white);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.songs-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+.songs-list::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.songs-list::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+  margin: 4px 0;
+}
+
+.songs-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--primary), var(--secondary));
+  border-radius: 10px;
+  border: 2px solid rgba(0,0,0,0);
+  background-clip: padding-box;
+}
+
+.songs-list::-webkit-scrollbar-thumb:hover {
+  filter: brightness(0.92);
+}
+
+.songs-list::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, var(--secondary), var(--tertiary));
+}
+
+@media (prefers-color-scheme: dark) {
+  .songs-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+  .songs-list { scrollbar-color: var(--primary) rgba(255,255,255,0.02); }
 }

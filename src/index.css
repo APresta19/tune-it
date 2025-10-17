@@ -2,9 +2,11 @@
   color-scheme: light dark;
 
   --white: #FEF3E2;
+  --darker-white: #e3d8c8;
   --primary: #FAB12F;
   --secondary: #FA812F;
   --tertiary: #DD0303;
+  --clicked: #f0711d;
 }
 
 html, body, #root
@@ -15,9 +17,25 @@ html, body, #root
   height: 100%;
 }
 
+button
+{
+  cursor: pointer;
+  background-color: var(--primary);
+  border: none;
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+button:hover
+{
+  background-color: var(--clicked);
+}
+
 body 
 {
   color: #242424;
-  background-color: #e3d8c8;
+  background-color: var(--darker-white);
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
