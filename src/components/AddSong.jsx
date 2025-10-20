@@ -91,6 +91,16 @@ function AddSong() {
         setSelectedSongs(updatedSongs);
     }
 
+    function handleDone() {
+        if(selectedSongs.length != 3) {
+            alert("Please select exactly 3 songs before proceeding.");
+            return;
+        }
+
+        console.log("Final selected songs: ", selectedSongs);
+
+    }
+
     return (
         <div className="add-container">
             <a href={`${API_URL}/login`}>
@@ -123,6 +133,7 @@ function AddSong() {
                         </div>
                     </div>)}
             </div>
+            <button style={{fontSize: '16px', padding: '10px 50px'}} onClick={handleDone}>Done</button>
         </div>
     )
 }

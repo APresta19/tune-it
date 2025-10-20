@@ -3,6 +3,7 @@ import querystring from "querystring";
 import cors from "cors";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import userRoute from "./routes/userRoute.js";
 
 // Load env
 dotenv.config();
@@ -12,10 +13,11 @@ const client_id = process.env.VITE_SPOTIFY_API_KEY;
 const API_URL = process.env.VITE_API_URL;
 const redirect_uri = `${API_URL}/callback`;
 
-
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
+let access_token = null;
 app.get("/callback", async (req, res) => {
     const code = req.query.code || null;
 
@@ -37,6 +39,7 @@ app.get("/callback", async (req, res) => {
 
     const data = await response.json();
     console.log("Tokens received:", data);
+    access_token = data.access_token;
 
     // Redirect to frontend with access token
     const FRONTEND_URL = process.env.VITE_FRONTEND_URL;
@@ -45,7 +48,13 @@ app.get("/callback", async (req, res) => {
 
 app.get("/login", (req, res) => {
   const state = Math.random().toString(36).substring(2, 15);
-  const scope = "user-read-private user-read-email";
+  const scope = [
+    "user-read-email",
+    "user-read-private",
+    "playlist-modify-public",
+    "playlist-modify-private"
+  ].join(" ");
+
   console.log("Redirecting to Spotify for authentication...");
   console.log({state, scope});
   console.log({client_id, redirect_uri});
@@ -60,6 +69,11 @@ app.get("/login", (req, res) => {
       })
   );
 });
+
+app.use("/users", (req, res, next) => {
+    req.access_token = access_token;
+    next();
+}, userRoute);
 
 app.listen(3001, () => {
   console.log(`Server running on localhost:3001`);
