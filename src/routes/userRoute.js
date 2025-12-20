@@ -21,6 +21,7 @@ router.get("/songs", (req, res) => {
     for(const userId in userSongs) {
         allSongs.push(...userSongs[userId]);
     }
+    res.send(allSongs);
 });
 
 router.get("/:id/songs", (req, res) => {

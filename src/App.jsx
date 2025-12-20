@@ -1,14 +1,31 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import AddSong from './components/AddSong'
+import Playback from './components/Playback'
+import './index.css'
 
 function App() {
-  return (
-    <>
-      <h1>Hello</h1>
-    </>
-  )
-}
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("access_token");
 
-export default App
+    if (token) {
+      // Add token to local storage
+      localStorage.setItem("access_token", token);
+
+      // Remove token from query parameter
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<AddSong />} />
+        <Route path="/playback" element={<Playback />} />
+        <Route path="*" element={<AddSong />} />
+      </Routes>
+    </Router>
+  );
+}
+export default App;

@@ -1,16 +1,17 @@
 import '../css/AddSong.css';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Song from './Song';
 
 function AddSong() {
+    const navigate = useNavigate();
     const [searchValue, setSearchValue] = useState("");
     const [songs, setSongs] = useState([]);
     const [selectedSongs, setSelectedSongs] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
 
     const API_URL = import.meta.env.VITE_API_URL;
-    const params = new URLSearchParams(window.location.search);
-    const access_token = params.get("access_token");
+    const access_token = localStorage.getItem("access_token");
 
     async function fetchFromAPI(endpoint, method = "GET", body) {
         if(!access_token) {
@@ -98,6 +99,10 @@ function AddSong() {
         }
 
         console.log("Final selected songs: ", selectedSongs);
+
+        // Navigate to playback with selected song IDs
+        const songIds = selectedSongs.map(song => song.id).join(",");
+        navigate(`/playback?song_ids=${encodeURIComponent(songIds)}&access_token=${encodeURIComponent(access_token)}`);
 
     }
 

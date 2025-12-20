@@ -52,7 +52,8 @@ app.get("/login", (req, res) => {
     "user-read-email",
     "user-read-private",
     "playlist-modify-public",
-    "playlist-modify-private"
+    "playlist-modify-private",
+    "streaming"
   ].join(" ");
 
   console.log("Redirecting to Spotify for authentication...");
