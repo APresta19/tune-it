@@ -1,0 +1,44 @@
+.join-container
+{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.join-container .join-form
+{
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background-color: var(--white);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    padding: 32px;
+    width: 320px;
+    border-radius: 8px;
+}
+
+.join-container .join-form h1
+{
+    margin: 0;
+    text-align: center;
+    color: var(--secondary);
+}
+
+.join-container .join-form input
+{
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.join-container .join-form input:focus
+{
+    border-color: var(--secondary);
+    outline: none;
+}
+
+.join-container .join-form button
+{
+    width: 100%;
+    padding: 10px;
+}

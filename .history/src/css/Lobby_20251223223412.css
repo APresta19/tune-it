@@ -1,0 +1,54 @@
+.lobby-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background-color: var(--darker-white);
+}
+
+.lobby-title {
+  font-size: 32px;
+  margin: 0;
+}
+
+.room-info {
+  background-color: var(--white);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.room-info strong {
+  margin-left: 8px;
+  color: var(--secondary);
+}
+
+.players-section {
+  background-color: var(--white);
+  padding: 16px 24px;
+  border-radius: 8px;
+  width: 260px;
+  text-align: center;
+}
+
+.player-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0 0;
+}
+
+.player-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--darker-white);
+}
+
+.player-list li:last-child {
+  border-bottom: none;
+}
+
+.lobby-actions {
+  display: flex;
+  gap: 16px;
+}

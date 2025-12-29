@@ -38,7 +38,7 @@ function Playback()
             // Get all user songs and add to songs list
 
             // Use api to create a playlist with the songs list
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/users/playlist/create`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/spotify/playlist/create`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -63,7 +63,7 @@ function Playback()
         {
             if (!playlistId || !songs || songs.length === 0) return;
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/users/playlist/${playlistId}/add-songs`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/spotify/playlist/${playlistId}/tracks`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
