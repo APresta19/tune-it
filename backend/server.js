@@ -93,7 +93,7 @@ app.listen(3001, () => {
 });
 
 import pool from './db/pool.js'
-
+console.log("PG pass: ", process.env.PG_PASSWORD)
 async function testDB()
 {
   const q = await pool.query("SELECT * FROM PLAYERS")

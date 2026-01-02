@@ -3,10 +3,12 @@ dotenv.config();
 
 import { Pool } from "pg";
 
-console.log("PG_URL at pool init:", process.env.PG_URL);
-
 const pool = new Pool({
-  connectionString: process.env.PG_URL,
+  host: process.env.PG_HOST,
+  port: Number(process.env.PG_PORT),
+  database: process.env.PG_DATABASE,
+  user: process.env.PG_USER,
+  password: String(process.env.PG_PASSWORD)
 });
 
 export default pool;

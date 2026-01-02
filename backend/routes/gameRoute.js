@@ -30,12 +30,12 @@ router.post("/create", async (req, res) => {
     {
         const gameId = crypto.randomUUID();
         // Create playlist
-        const playlist = await createSpotifyPlaylist(token, gameName, gameDescription, false);
+        //const playlist = await createSpotifyPlaylist(token, gameName, gameDescription, false);
 
         const game = {
             gameId,
             hostName,
-            playlistId: playlist.id,
+            //playlistId: playlist.id,
             state: "lobby",
             createdAt: Date.now()
         }
