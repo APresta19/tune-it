@@ -3,6 +3,8 @@ import querystring from "querystring";
 import cors from "cors";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import http from "http";
+import { Server } from "socket.io";
 import userRoute from "./routes/userRoute.js";
 import spotifyRoute from "./routes/spotifyRoute.js";
 import gameRoute from "./routes/gameRoute.js";
@@ -11,13 +13,73 @@ import gameRoute from "./routes/gameRoute.js";
 dotenv.config();
 
 const app = express();
-const client_id = process.env.VITE_SPOTIFY_API_KEY;
-const API_URL = process.env.VITE_API_URL;
-const redirect_uri = `${API_URL}/callback`;
+const client_id = process.env.SPOTIFY_CLIENT_ID;
+const redirect_uri = process.env.SPOTIFY_REDIRECT_URI;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*"
+  }
+})
+
+app.use((req, res, next) => {
+  // Attach io to routes
+  req.io = io;
+  next();
+})
+const games = {};
+io.on("connection", (socket) => {
+  console.log("Connected user: ", socket.id);
+
+  socket.on("joinGame", ({gameId, playerName}) => {
+    const playerId = socket.id;
+    if (!gameId || !playerId || !playerName) {
+      socket.emit("error", "Missing join data");
+      return;
+    }
+
+    if (!(gameId in games))
+    {
+      socket.emit("error", "Game socket doesn't exist");
+      return;
+    }
+    const game = games[gameId];
+
+    console.log("Joined game ", gameId, " by user ", playerName);
+ 
+    if (playerId in game.players)
+    {
+      socket.emit("error", "Player already in game");
+    }
+
+    const isNameTaken = Object.values(game.players).some(p => p.playerName === playerName);
+
+    if(isNameTaken)
+    {
+      socket.emit("error", "Player name is taken");
+      return
+    }
+
+    // Add player to game
+    game.players[playerId] = {
+      playerId,
+      playerName
+    };
+
+    socket.join(`game:${gameId}`);
+    io.to(`game:${gameId}`).emit("gameState", game); // send to everyone (instead of socket.to)
+  })
+
+  socket.on("disconnect", () => {
+    console.log("Disconnected user: ", socket.id);
+  })
+})
+
 
 let access_token = null;
 app.get("/callback", async (req, res) => {
@@ -88,15 +150,6 @@ app.use("/game", (req, res, next) => {
     next();
 }, gameRoute);
 
-app.listen(3001, () => {
-  console.log(`Server running on localhost:3001`);
+server.listen(3001, () => {
+  console.log(`HTTP + Socket.io server running on localhost:3001`);
 });
-
-import pool from './db/pool.js'
-console.log("PG pass: ", process.env.PG_PASSWORD)
-async function testDB()
-{
-  const q = await pool.query("SELECT * FROM PLAYERS")
-  console.log(q.rows)
-}
-testDB();

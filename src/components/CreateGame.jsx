@@ -39,7 +39,7 @@ function CreateGame() {
       const data = await response.json();
 
       // Navigate to lobby page with gameId
-      navigate(`/lobby/?gameId=${data.gameId}`);
+      navigate(`/lobby/${data.game_id}`);
     } catch (err) {
       console.error(err);
       setError("Something went wrong creating the game");

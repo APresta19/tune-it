@@ -1,8 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import "../css/Lobby.css";
+import { getSocket } from "../../backend/services/socket.js";
 
 function Lobby() {
   const navigate = useNavigate();
+  const socket = getSocket();
+
+  // Handle socket events here
+  socket.on("connect", () => {
+    console.log("Connected to server with ID:", socket.id);
+  });
 
   // Mock
   const players = ["Player 1", "Player 2", "Player 3"];

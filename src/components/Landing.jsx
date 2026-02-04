@@ -7,7 +7,7 @@ function Landing() {
   return (
     <div className="landing-container">
       <div className="landing-card">
-        <h1>Tune-It</h1>
+        <h1>Tune It</h1>
         <p className="tagline">
           A multiplayer music guessing game
         </p>

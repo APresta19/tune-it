@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import AddSong from './components/AddSong'
 import Playback from './components/Playback'
 import CreateGame from './components/CreateGame'
@@ -9,6 +10,8 @@ import Lobby from './components/Lobby'
 import './index.css'
 
 function App() {
+  const { gameId } = useParams();
+  
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("access_token");
@@ -29,7 +32,7 @@ function App() {
         <Route path="/add-song" element={<AddSong />} />
         <Route path="/create" element={<CreateGame />} />
         <Route path="/join" element={<JoinGame />} />
-        <Route path="/lobby" element={<Lobby />} />
+        <Route path="/lobby/:gameId" element={<Lobby />} />
         <Route path="/playback" element={<Playback />} />
         <Route path="*" element={<Landing />} />
       </Routes>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import "../css/Playback.css";
 import ProgressBar from "./ProgressBar";
 import PlayerGuess from "./PlayerGuess";
+import { io } from "socket.io-client";
 
 function Playback() 
 {
@@ -20,63 +21,43 @@ function Playback()
 
     const [playlistId, setPlaylistId] = useState(null);
 
+    const playerId = useRef(localStorage.getItem("playerId"));
+    const playerName = useRef(localStorage.getItem("playerName"));
+    const gameId = useRef(new URLSearchParams(window.location.search).get("gameId"));
+
+
+    const socket = useRef(null);
+
     // Game Logic
 
     // mock
+    // useEffect(() => {
+    // setSongs([
+    //     { trackId: "6zeeWid2sgw4lap2jV61PZ" },
+    //     { trackId: "2L9N0zZnd37dwF0clgxMGI" }
+    //     ]);
+    // }, []);
+
     useEffect(() => {
-    setSongs([
-        { trackId: "6zeeWid2sgw4lap2jV61PZ" },
-        { trackId: "2L9N0zZnd37dwF0clgxMGI" }
-        ]);
+        // Socket setup
+        socket.current = io(import.meta.env.VITE_API_URL);
+        
+        socket.current.emit("joinGame", { 
+            gameId: gameId.current, 
+            playerName: playerName.current, 
+            playerId: playerId.current 
+        });
+
+        // Listen for events
+        socket.current.on("gameState", (state) => {
+            setRoomPlayerList(state.players);
+            setSongs(state.songs);
+            setCurrentSongIndex(state.currentSongIndex);
+        });
+
+        return () => { socket.current.disconnect(); }
     }, []);
 
-
-    useEffect(() => {
-        // Create playlist will be moved to when you create the game, but temporarily here
-        async function createPlaylist()
-        {
-            // Get all user songs and add to songs list
-
-            // Use api to create a playlist with the songs list
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/spotify/playlist/create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    name: "Tune-It Playlist",
-                    description: "Guess Who Added the Song",
-                    public: false,
-                })
-            })
-            const data = await response.json();
-            console.log("Playlist created: ", data)
-
-            // Update playlist id
-            setPlaylistId(data.playlistId);
-        }
-        createPlaylist();
-    }, [])
-
-    useEffect(() => {
-        async function addTracksToPlaylist() 
-        {
-            if (!playlistId || !songs || songs.length === 0) return;
-
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/spotify/playlist/${playlistId}/tracks`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({trackIds: songs.map(song => song.trackId)}),
-            });
-
-            const data = await response.json();
-            console.log("Added songs: ", data);
-        }
-        addTracksToPlaylist();
-    }, [playlistId, songs])
-    
 
     function shufflePlaylist()
     {
