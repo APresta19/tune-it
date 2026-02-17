@@ -38,8 +38,13 @@ function CreateGame() {
 
       const data = await response.json();
 
+      // Add to local storage
+      localStorage.setItem("playerId", data.host.player_id);
+      localStorage.setItem("playerName", hostName);
+      localStorage.setItem("gameId", data.game.game_id);
+
       // Navigate to lobby page with gameId
-      navigate(`/lobby/${data.game_id}`);
+      navigate(`/lobby/${data.game.game_id}`);
     } catch (err) {
       console.error(err);
       setError("Something went wrong creating the game");

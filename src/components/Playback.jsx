@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import "../css/Playback.css";
 import ProgressBar from "./ProgressBar";
 import PlayerGuess from "./PlayerGuess";
 import { io } from "socket.io-client";
+import { getSocket } from "../../backend/services/socket.js";
+import { useParams } from "react-router-dom";
 
 function Playback() 
 {
@@ -21,9 +23,9 @@ function Playback()
 
     const [playlistId, setPlaylistId] = useState(null);
 
-    const playerId = useRef(localStorage.getItem("playerId"));
-    const playerName = useRef(localStorage.getItem("playerName"));
-    const gameId = useRef(new URLSearchParams(window.location.search).get("gameId"));
+    const playerId = localStorage.getItem("playerId");
+    const playerName = localStorage.getItem("playerName");
+    const { gameId } = useParams();
 
 
     const socket = useRef(null);
@@ -40,23 +42,36 @@ function Playback()
 
     useEffect(() => {
         // Socket setup
-        socket.current = io(import.meta.env.VITE_API_URL);
-        
-        socket.current.emit("joinGame", { 
-            gameId: gameId.current, 
-            playerName: playerName.current, 
-            playerId: playerId.current 
-        });
+        socket.current = getSocket();
 
+         const join = () => {
+            console.log("Emitting joinGame...");
+            socket.current.emit("joinGame", { gameId, playerId, playerName });
+        };
+
+        if (socket.current.connected) {
+            // Already connected
+            join();
+        } else {
+            // First-time connect
+            socket.current.on("connect", join);
+        }
+
+        
         // Listen for events
         socket.current.on("gameState", (state) => {
+            console.log("Playback received game state:", state);
             setRoomPlayerList(state.players);
             setSongs(state.songs);
             setCurrentSongIndex(state.currentSongIndex);
         });
 
-        return () => { socket.current.disconnect(); }
+        return () => { 
+            socket.current.off("connect");
+            socket.current.off("gameState"); 
+        }
     }, []);
+
 
 
     function shufflePlaylist()
@@ -155,6 +170,8 @@ function Playback()
         setGuessedRoomPlayerList(prev =>
             prev.includes(playerName) ? prev : [...prev, playerName]
         );
+
+        // If everybody has guessed
     }
 
     return (
@@ -165,9 +182,9 @@ function Playback()
                 <ProgressBar currentTime={currentTime} duration={duration} />
                 <div className="guess-container">
                     <h2>Guess Who</h2>
-                    <PlayerGuess name="Player 1" onClick={() => handleGuess("Player 1")}/>
-                    <PlayerGuess name="Player 2" onClick={() => handleGuess("Player 2")}/>
-                    <PlayerGuess name="Player 3" onClick={() => handleGuess("Player 3")}/>
+                    {roomPlayerList.map(player => (
+                        <PlayerGuess key={player.player_id} name={player.player_name} onClick={() => handleGuess(player.player_name)}/>
+                    ))}
                 </div>
                 {revealed ? <h1 style={{ color: "green" }}>Revealed</h1> : <h1 style={{ color: "red" }}>Not Revealed</h1>}
             </div>

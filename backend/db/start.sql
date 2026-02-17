@@ -10,7 +10,6 @@ CREATE TYPE game_state_enum AS ENUM ('lobby', 'playing', 'finished');
 CREATE TABLE IF NOT EXISTS games (
     game_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     room_code TEXT NOT NULL UNIQUE,
-    host_name TEXT NOT NULL,
     game_name TEXT,
     game_desc TEXT,
     playlist_id TEXT,
@@ -21,6 +20,7 @@ CREATE TABLE IF NOT EXISTS games (
 CREATE TABLE IF NOT EXISTS players (
     player_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     player_name TEXT NOT NULL,
+    is_host BOOLEAN NOT NULL DEFAULT FALSE,
     game_id UUID REFERENCES games(game_id) ON DELETE CASCADE,
     total_points INTEGER DEFAULT 0,
     joined_at TIMESTAMP DEFAULT NOW(),
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 CREATE TABLE IF NOT EXISTS songs (
-    song_id UUID PRIMARY KEY, /* auto increments */
+    song_id UUID PRIMARY KEY,
     game_id UUID REFERENCES games(game_id) ON DELETE CASCADE,
     player_id UUID REFERENCES players(player_id),
     track_uri TEXT NOT NULL,

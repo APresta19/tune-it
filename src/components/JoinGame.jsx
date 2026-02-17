@@ -50,7 +50,7 @@ function JoinGame()
 
         } catch (err) {
             console.error(err);
-            setError("Failed to join game. Please check the game code and try again.");
+            setError("Failed to join game. Please check the game code or try another name.");
         } finally {
             setLoading(false);
         }

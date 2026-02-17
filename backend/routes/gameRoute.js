@@ -31,6 +31,8 @@ function createRoomCode(length = 6)
 }
 
 router.post("/create", async (req, res) => {
+    // Create a game --> marked as host
+
     const { hostName, gameName, gameDescription } = req.body;
     const token = req.access_token;
 
@@ -57,10 +59,10 @@ router.post("/create", async (req, res) => {
         {
             try {
                 roomCode = createRoomCode();
-                result = await pool.query(`INSERT INTO games(host_name, game_name, game_desc, playlist_id, room_code) 
-                                   VALUES ($1, $2, $3, $4, $5)
-                                   RETURNING game_id, host_name, game_name, game_desc, playlist_id, created_at`, 
-                                   [hostName, gameName, gameDescription, playlist.id, roomCode]);
+                result = await pool.query(`INSERT INTO games(game_name, game_desc, playlist_id, room_code) 
+                                   VALUES ($1, $2, $3, $4)
+                                   RETURNING game_id, game_name, game_desc, playlist_id, created_at`, 
+                                   [gameName, gameDescription, playlist.id, roomCode]);
                 break;
             } catch (err) {
                 if (err.code !== "23505") throw err; // unique DB constraint
@@ -68,8 +70,18 @@ router.post("/create", async (req, res) => {
         }
         
         // Return response
-        const game = result.rows[0] // Creating one game at a time so we can just grab the first row
-        res.status(201).json(game)
+        const game = result.rows[0]; // Creating one game at a time so we can just grab the first row
+
+        // Insert host into game
+        const playerQuery = await pool.query(`
+            INSERT INTO players (player_name, game_id, is_host)
+            VALUES ($1, $2, $3)
+            RETURNING player_id, player_name, is_host
+            `, [hostName, game.game_id, true]);
+
+        console.log("Host: ", playerQuery.rows[0]);
+        console.log("Game: ", game);
+        res.status(201).json({game, host: playerQuery.rows[0]});
 
     } catch (err)
     {
@@ -102,7 +114,7 @@ router.post("/:gameId/join", async (req, res) => {
     }
 });
 
-router.post("/:gameId/add-song", async (req, res) => {
+router.post("/:gameId/add-songs", async (req, res) => {
     const { gameId } = req.params;
     const { playerId, trackUri } = req.body;
     const token = req.access_token;
@@ -180,7 +192,7 @@ router.get("/:gameId/state", async (req, res) => {
 
     try {
         const gameObjQuery = await pool.query(`
-            SELECT game_id, host_name, game_name, playlist_id
+            SELECT game_id, game_name, game_desc, playlist_id, room_code
             FROM games
             WHERE game_id = $1
             `, [gameId]);

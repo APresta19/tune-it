@@ -29,11 +29,11 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/add-song" element={<AddSong />} />
+        <Route path="/add-songs" element={<AddSong />} />
         <Route path="/create" element={<CreateGame />} />
         <Route path="/join" element={<JoinGame />} />
         <Route path="/lobby/:gameId" element={<Lobby />} />
-        <Route path="/playback" element={<Playback />} />
+        <Route path="/playback/:gameId" element={<Playback />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     </Router>
