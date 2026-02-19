@@ -29,7 +29,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/add-songs" element={<AddSong />} />
+        <Route path="/add-songs/:gameId" element={<AddSong />} />
         <Route path="/create" element={<CreateGame />} />
         <Route path="/join" element={<JoinGame />} />
         <Route path="/lobby/:gameId" element={<Lobby />} />

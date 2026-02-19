@@ -10,6 +10,7 @@ import userRoute from "./routes/userRoute.js";
 import spotifyRoute from "./routes/spotifyRoute.js";
 import gameRoute from "./routes/gameRoute.js";
 import { getGameState } from "./services/gameState.js";
+import { PHASES, getOrCreateGame, getGame, deleteGame, getAllGames } from "./services/liveGames.js";
 
 // Load env
 dotenv.config();
@@ -35,20 +36,14 @@ app.use((req, res, next) => {
   next();
 });
 
-const PHASES = {
-  LOBBY: "lobby",
-  PLAYING: "playing",
-  SCORING: "scoring",
-  FINISHED: "finished",
-};
-
 // The DB CANNOT handle live games
 // So, we can create a memory object to make sure socket connection is good
-const liveGames = {};
 io.on("connection", (socket) => {
   console.log("Connected user: ", socket.id);
 
   socket.on("joinGame", async ({ gameId, playerId, playerName }) => { 
+    const gameMemory = getOrCreateGame(gameId);
+    console.log(gameMemory);
     console.log("joinGame event fired.")
     console.log("gameId:", gameId);
     console.log("playerId:", playerId);
@@ -73,24 +68,15 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (!liveGames[gameId]) {
-      liveGames[gameId] = { 
-                            phase: PHASES.LOBBY,
-                            players: {},
-                            createdAt: Date.now() 
-                          };
-    }
-
-    if (liveGames[gameId].phase !== PHASES.LOBBY && !liveGames[gameId].players[playerId]) {
+    if (gameMemory.phase !== PHASES.LOBBY && !gameMemory.players[playerId]) {
       socket.emit("error", "Game already started");
       return;
     }
 
-
-    // Sockets only need the ids
-    liveGames[gameId].players[playerId] = {
+    gameMemory.players[playerId] = {
       socketId: socket.id,
       playerId,
+      songsAdded: {},
       createdAt: Date.now()
     };
 
@@ -100,37 +86,66 @@ io.on("connection", (socket) => {
     io.to(`game:${gameId}`).emit("gameState", game); // send to everyone (instead of socket.to)
   });
 
-  socket.on("startGame", async ({ gameId }) => {
-    console.log("Starting game: ", gameId);
+  // This acts as a "ready up"
+  socket.on("startGame", async ({ gameId, playerId }) => {
+    const gameMemory = getOrCreateGame(gameId);
+    console.log("Player ", playerId, " is trying to start game: ", gameId);
 
-    if (!liveGames[gameId]) { return; }
+    if (!gameMemory) { return; }
 
-    liveGames[gameId].phase = PHASES.PLAYING;
+    // Fill individual player songs
+    const result = await pool.query(`
+      SELECT song_id
+      FROM songs
+      WHERE player_id = $1
+    `, [playerId]);
+
+    gameMemory.players[playerId].songsAdded = result.rows.length;
+
+    for (const pid in gameMemory.players)
+    {
+      if (gameMemory.players[pid].songsAdded.length < gameMemory.songAmountToAdd)
+      {
+        console.log("A player doesn't have enough songs.")
+        socket.emit("error", "A player doesn't have enough songs.")
+        return;
+      }
+    }
+
+    gameMemory.phase = PHASES.PLAYING;
+    io.to(`game:${gameId}`).emit("gameStarted");
 
     const game = await getGameState(gameId);
     io.to(`game:${gameId}`).emit("gameState", {...game, phase: PHASES.PLAYING});
   });
 
   socket.on("leaveGame", async ({ gameId, playerId }) => {
+    const gameMemory = getOrCreateGame(gameId);
     console.log("Socket connected?", socket.connected);
     console.log("Socket ID:", socket.id);
     console.log("Rooms before leaving:", socket.rooms);
+
+    // Store metadata
+    socket.gameId = gameId;
+    socket.playerId = playerId;
     
     console.log(playerId, " is leaving the game.");
-    if (!liveGames[gameId] || !liveGames[gameId].players[playerId])
+    if (!gameMemory || !gameMemory.players[playerId])
     {
       socket.emit("error", "Player is not in game.");
       return;
     }
 
+    // If player is host, force everyone to leave
+
     await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
 
-    delete liveGames[gameId].players[playerId];
+    deleteGame(gameId);
 
     socket.leave(`game:${gameId}`);
 
     console.log("Rooms after leaving:", socket.rooms);
-    console.log("Live game players after delete:", liveGames[gameId].players);
+    console.log("Live game players after delete:", gameMemory.players);
 
     const game = await getGameState(gameId);
     io.to(`game:${gameId}`).emit("gameState", game);
@@ -138,33 +153,28 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", async () => {
     console.log("Socket disconnected.");
-    // Disconnect is global so we need to loop through all players and disconnect the one with the same socket id
-    for (const gameId in liveGames)
+
+    const { gameId, playerId } = socket;
+    const allGames = getAllGames();
+
+    if (!gameId || !playerId)
     {
-      const game = liveGames[gameId];
-      for (const playerId in game.players)
-      {
-        if (game.players[playerId].socketId === socket.id)
-        {
-          await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
-          
-          // Remove player from memory
-          delete game.players[playerId];
-
-          // Update game state
-          const gameState = await getGameState(gameId);
-          io.to(`game:${gameId}`).emit("gameState", gameState);
-
-          break;
-        }
-      }
-
-      // Remove empty games from memory
-      if (Object.keys(liveGames[gameId].players).length === 0) { // Objects in JS dont have a length but arrays do
-        delete liveGames[gameId];
-      }
+      console.error("Missing gameId or playerId");
+      return;
     }
 
+    // Delete the stuff
+    await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
+    delete allGames[gameId].players[playerId];
+
+    // Update game state
+    const gameState = await getGameState(gameId);
+    io.to(`game:${gameId}`).emit("gameState", gameState);
+
+    // Remove empty games from memory
+    if (Object.keys(allGames[gameId].players).length === 0) { // Objects in JS dont have a length but arrays do
+      delete allGames[gameId];
+    }
     console.log("Disconnected user: ", socket.id);
   });
 });

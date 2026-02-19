@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS players (
 );
 
 CREATE TABLE IF NOT EXISTS songs (
-    song_id UUID PRIMARY KEY,
+    song_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     game_id UUID REFERENCES games(game_id) ON DELETE CASCADE,
     player_id UUID REFERENCES players(player_id),
     track_uri TEXT NOT NULL,

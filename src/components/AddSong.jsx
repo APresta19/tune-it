@@ -92,18 +92,44 @@ function AddSong() {
         setSelectedSongs(updatedSongs);
     }
 
-    function handleDone() {
+    async function handleDone() {
         if(selectedSongs.length != 3) {
             alert("Please select exactly 3 songs before proceeding.");
             return;
         }
 
         console.log("Final selected songs: ", selectedSongs);
+        //navigate(`/playback?song_ids=${encodeURIComponent(songIds)}&access_token=${encodeURIComponent(access_token)}`);
 
-        // Navigate to playback with selected song IDs
-        const songIds = selectedSongs.map(song => song.id).join(",");
-        navigate(`/playback?song_ids=${encodeURIComponent(songIds)}&access_token=${encodeURIComponent(access_token)}`);
+        // Store selected songs in local storage
+        //localStorage.setItem("selectedSongs", JSON.stringify(selectedSongs));
 
+        // Backend call
+        const response = await fetch(`${API_URL}/game/${localStorage.getItem("gameId")}/add-songs`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ 
+                    playerId: localStorage.getItem("playerId"),
+                    trackUris: selectedSongs.map(song => `spotify:track:${song.id}`),
+                }),
+            })
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            alert(errorData.message || "Failed to add songs");
+            return;
+        }
+
+        const data = await response.json();
+        console.log("Songs added successfully:", data);
+
+        // Navigate to playback page
+        const gameId = localStorage.getItem("gameId");
+
+        // Instead of navigating do the socket stuff
+        navigate(`/playback/${gameId}`);
     }
 
     return (

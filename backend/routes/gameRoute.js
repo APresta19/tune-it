@@ -116,10 +116,10 @@ router.post("/:gameId/join", async (req, res) => {
 
 router.post("/:gameId/add-songs", async (req, res) => {
     const { gameId } = req.params;
-    const { playerId, trackUri } = req.body;
+    const { playerId, trackUris } = req.body;
     const token = req.access_token;
 
-    if (!playerId || !trackUri) { return res.status(400).send("Missing playerId or trackUri"); }
+    if (!playerId || !trackUris || !Array.isArray(trackUris)) { return res.status(400).send("Missing playerId or trackUri"); }
 
     try {
         // Get playlist from game
@@ -146,26 +146,63 @@ router.post("/:gameId/add-songs", async (req, res) => {
             return res.status(403).send("Player is not in game");
         }
 
-        // Insert into DB
-        await pool.query(`
-            INSERT INTO songs (game_id, player_id, track_uri)
-            VALUES ($1, $2, $3)
+        // Insert tracks into DB
+        await pool.query("BEGIN"); // these ensure all tracks are added (or not)
+        for (const trackUri of trackUris)
+        {
+            await pool.query(`
+                INSERT INTO songs (game_id, player_id, track_uri)
+                VALUES ($1, $2, $3)
             `, [gameId, playerId, trackUri])
+        }
+        await pool.query("COMMIT");
 
         // Add song to spotify playlist
-        await addSpotifySongToPlaylist(token, [trackUri], playlistId);
+        console.log("Addings songs to Spotify Playlist: ", trackUris);
+        await addSpotifySongToPlaylist(token, trackUris, playlistId);
 
         // Fire event to room
         const room = `game:${gameId}`;
-        req.io.to(room).emit("songAdded", { playerId, trackUri })
+        req.io.to(room).emit("songAdded", { playerId, trackUris })
 
         res.status(201).send("Song added");
 
     } catch(err) {
+        await pool.query("ROLLBACK");
         console.error("Cannot add song: ", err);
         res.status(500).send("Internal server error.");
     }
 });
+
+router.get("/:gameId/songs/:playerId", async (req, res) => {
+    const { gameId, playerId } = req.params;
+
+    if (!gameId || !playerId) { 
+        return res.status(400).send("Missing gameId or playerId");
+    }
+
+    try {
+        const playerSongQuery = await pool.query(`
+            SELECT players.player_id, players.player_name, songs.song_id, songs.track_uri
+            FROM players LEFT JOIN songs USING (player_id)
+            WHERE players.game_id = $1 AND players.player_id = $2
+            `, [gameId, playerId]);
+        if (playerSongQuery.rows.length === 0)
+        {
+            return res.status(403).send("Player songs cannot be found.");
+        }
+
+        const playerSongs = playerSongQuery.rows.map(row => ({
+            songId: row.song_id,
+            trackUri: row.track_uri
+        }));
+
+        res.status(200).json(playerSongs);
+    } catch (err) {
+        console.error("Player songs cannot be found: ", err);
+        res.status(500).send("Internal server error");
+    }
+})
 
 router.post("/:gameId/start", async (req, res) => {
     const { gameId } = req.params;

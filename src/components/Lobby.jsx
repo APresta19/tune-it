@@ -32,6 +32,20 @@ function Lobby() {
     setGameState(state);
   }
 
+  function handleGameStart() {
+    const playerId = localStorage.getItem("playerId");
+    socket.emit("startGame", { gameId: gameId, playerId: playerId });
+  }
+
+  useEffect(() => {
+    socket.on("gameStarted", () => {
+      navigate(`/add-songs/${gameId}`);
+    });
+
+    return () => socket.off("gameStarted");
+  }, []);
+
+
 
   useEffect(() => {
     // Fetch initial game state from backend
@@ -93,7 +107,7 @@ function Lobby() {
         <button onClick={handleLeaveLobby}>
           Leave Lobby
         </button>
-        <button onClick={() => navigate(`/playback/${gameId}`)}>
+        <button onClick={() => handleGameStart()}>
           Start Game
         </button>
       </div>
