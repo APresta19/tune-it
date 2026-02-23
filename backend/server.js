@@ -179,6 +179,7 @@ io.on("connection", (socket) => {
   });
 });
 
+const hostTokens = {};
 let access_token = null;
 app.get("/callback", async (req, res) => {
   const code = req.query.code || null;
@@ -202,6 +203,9 @@ app.get("/callback", async (req, res) => {
   const data = await response.json();
   console.log("Tokens received:", data);
   access_token = data.access_token;
+  if (!access_token) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
 
   // Redirect to frontend with access token
   const FRONTEND_URL = process.env.VITE_FRONTEND_URL;
@@ -236,7 +240,7 @@ app.get("/login", (req, res) => {
 app.use(
   "/users",
   (req, res, next) => {
-    req.access_token = access_token;
+    req.hostTokens = hostTokens;
     next();
   },
   userRoute,
@@ -245,7 +249,7 @@ app.use(
 app.use(
   "/spotify",
   (req, res, next) => {
-    req.access_token = access_token;
+    req.hostTokens = hostTokens;
     next();
   },
   spotifyRoute,
@@ -254,7 +258,7 @@ app.use(
 app.use(
   "/game",
   (req, res, next) => {
-    req.access_token = access_token;
+    req.hostTokens = hostTokens;
     next();
   },
   gameRoute,

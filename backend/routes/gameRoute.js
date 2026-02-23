@@ -1,6 +1,7 @@
 import express from "express";
 import { createSpotifyPlaylist, addSpotifySongToPlaylist } from "../services/spotifyService.js";
 import pool from "../db/pool.js";
+import getOrCreateToken from "../services/hostTokens.js";
 
 const router = express.Router();
 /*
@@ -34,7 +35,6 @@ router.post("/create", async (req, res) => {
     // Create a game --> marked as host
 
     const { hostName, gameName, gameDescription } = req.body;
-    const token = req.access_token;
 
     if(!hostName) { 
         return res.status(400).send("No hostname provided.")
@@ -42,15 +42,9 @@ router.post("/create", async (req, res) => {
     if(!gameDescription) {
         return res.status(400).send("No description provided.")
     }
-    if(!token) {
-        return res.status(400).send("No token provided.")
-    }
 
     try 
     {
-        // Create playlist
-        const playlist = await createSpotifyPlaylist(token, gameName, gameDescription, false);
-
         // Save game to DB
         // We need to allow room codes to be tried until it works
         let roomCode;
@@ -59,10 +53,10 @@ router.post("/create", async (req, res) => {
         {
             try {
                 roomCode = createRoomCode();
-                result = await pool.query(`INSERT INTO games(game_name, game_desc, playlist_id, room_code) 
-                                   VALUES ($1, $2, $3, $4)
-                                   RETURNING game_id, game_name, game_desc, playlist_id, created_at`, 
-                                   [gameName, gameDescription, playlist.id, roomCode]);
+                result = await pool.query(`INSERT INTO games(game_name, game_desc, room_code) 
+                                   VALUES ($1, $2, $3)
+                                   RETURNING game_id, game_name, game_desc, created_at`, 
+                                   [gameName, gameDescription, roomCode]);
                 break;
             } catch (err) {
                 if (err.code !== "23505") throw err; // unique DB constraint
@@ -71,6 +65,11 @@ router.post("/create", async (req, res) => {
         
         // Return response
         const game = result.rows[0]; // Creating one game at a time so we can just grab the first row
+        const token = getOrCreateToken(game.game_id);
+
+        // Create playlist
+        const playlist = await createSpotifyPlaylist(token.access_token, gameName, gameDescription, false);
+        await pool.query(`UPDATE games SET playlist_id = $1 WHERE game_id = $2`, [playlist.id, game.game_id]);
 
         // Insert host into game
         const playerQuery = await pool.query(`
@@ -117,7 +116,7 @@ router.post("/:gameId/join", async (req, res) => {
 router.post("/:gameId/add-songs", async (req, res) => {
     const { gameId } = req.params;
     const { playerId, trackUris } = req.body;
-    const token = req.access_token;
+    const token = getOrCreateToken(gameId);
 
     if (!playerId || !trackUris || !Array.isArray(trackUris)) { return res.status(400).send("Missing playerId or trackUri"); }
 

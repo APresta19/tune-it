@@ -3,6 +3,15 @@ import "../css/Landing.css";
 
 function Landing() {
   const navigate = useNavigate();
+  const token = localStorage.getItem("access_token");
+
+  const handleCreateGame = () => {
+    if (!token) {
+      alert("Please log in with Spotify to create a game.");
+      return;
+    }
+    navigate("/create");
+  };
 
   return (
     <div className="landing-container">
@@ -14,7 +23,7 @@ function Landing() {
 
         <div className="button-group">
           <button onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/login`} id="spotify-login">Login with Spotify</button>
-          <button onClick={() => navigate("/create")}>
+          <button onClick={handleCreateGame}>
             Create Game
           </button>
 

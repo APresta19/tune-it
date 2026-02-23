@@ -118,7 +118,7 @@ function AddSong() {
 
         if (!response.ok) {
             const errorData = await response.json();
-            alert(errorData.message || "Failed to add songs");
+            alert(errorData.message || "Failed to add songs. If you deleted the playlist, create a new game.");
             return;
         }
 
@@ -134,6 +134,7 @@ function AddSong() {
 
     return (
         <div className="add-container">
+            <p>If no songs appear when searching, click this button.</p>
             <a href={`${API_URL}/login`}>
                 <button>Login with Spotify</button>
             </a>
