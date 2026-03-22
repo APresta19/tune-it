@@ -5,6 +5,10 @@ function Landing() {
   const navigate = useNavigate();
   const token = localStorage.getItem("access_token");
 
+  useEffect(() => {
+    fetch(`${API_URL}/health`).catch(() => console.log("Server waking up..."));
+  }, []);
+
   const handleCreateGame = () => {
     if (!token) {
       alert("Please log in with Spotify to create a game.");

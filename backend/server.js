@@ -407,6 +407,8 @@ app.use(
   gameRoute,
 );
 
+app.get("/health", (req, res) => res.send("ok"));
+
 server.listen(process.env.PORT || 3001, () => {
   console.log(`HTTP + Socket.io server running on localhost:${process.env.PORT || 3001}`);
 });
