@@ -407,6 +407,6 @@ app.use(
   gameRoute,
 );
 
-server.listen(3001, () => {
-  console.log(`HTTP + Socket.io server running on localhost:3001`);
+server.listen(process.env.PORT || 3001, () => {
+  console.log(`HTTP + Socket.io server running on localhost:${process.env.PORT || 3001}`);
 });
