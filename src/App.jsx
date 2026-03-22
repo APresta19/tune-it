@@ -1,17 +1,15 @@
-import { useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { useParams } from 'react-router-dom'
-import AddSong from './components/AddSong'
-import Playback from './components/Playback'
-import CreateGame from './components/CreateGame'
-import JoinGame from './components/JoinGame'
-import Landing from './components/Landing'
-import Lobby from './components/Lobby'
-import './index.css'
+import { useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import AddSong from "./components/AddSong";
+import Playback from "./components/Playback";
+import CreateGame from "./components/CreateGame";
+import JoinGame from "./components/JoinGame";
+import Landing from "./components/Landing";
+import Lobby from "./components/Lobby";
+import Leaderboard from "./components/Leaderboard";
+import "./index.css";
 
 function App() {
-  const { gameId } = useParams();
-  
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("access_token");
@@ -34,6 +32,7 @@ function App() {
         <Route path="/join" element={<JoinGame />} />
         <Route path="/lobby/:gameId" element={<Lobby />} />
         <Route path="/playback/:gameId" element={<Playback />} />
+        <Route path="/leaderboard/:gameId" element={<Leaderboard />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     </Router>

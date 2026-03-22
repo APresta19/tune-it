@@ -1,4 +1,5 @@
 import pool from '../db/pool.js'
+import { getOrCreateGame } from '../services/liveGames.js';
 
 export async function getGameState(gameId)
 {
@@ -15,16 +16,19 @@ export async function getGameState(gameId)
         `, [gameId])
         
     const songsListQuery = await pool.query(`
-        SELECT song_id, player_id, track_uri
+        SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms
         FROM songs
         WHERE game_id = $1
         `, [gameId]);
-        
-    const gameState = {
+
+    const gameMemory = getOrCreateGame(gameId);
+
+    return {
         game: gameObjQuery.rows[0],
         players: playersListQuery.rows,
         songs: songsListQuery.rows,
+        phase: gameMemory.phase,
+        currentSongIndex: gameMemory.currentSongIndex,
+        currentSong: gameMemory.currentSong,
     }
-
-    return gameState;
 }

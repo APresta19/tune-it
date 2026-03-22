@@ -2,6 +2,7 @@ import express from "express";
 import { createSpotifyPlaylist, addSpotifySongToPlaylist } from "../services/spotifyService.js";
 import pool from "../db/pool.js";
 import getOrCreateToken from "../services/hostTokens.js";
+import { getOrCreateGame } from "../services/liveGames.js";
 
 const router = express.Router();
 /*
@@ -34,7 +35,7 @@ function createRoomCode(length = 6)
 router.post("/create", async (req, res) => {
     // Create a game --> marked as host
 
-    const { hostName, gameName, gameDescription } = req.body;
+    const { hostName, gameName, gameDescription, access_token, savePlaylist } = req.body;
 
     if(!hostName) { 
         return res.status(400).send("No hostname provided.")
@@ -65,10 +66,13 @@ router.post("/create", async (req, res) => {
         
         // Return response
         const game = result.rows[0]; // Creating one game at a time so we can just grab the first row
-        const token = getOrCreateToken(game.game_id);
+        req.hostTokens[game.game_id] = { access_token };
+        const gameMemory = getOrCreateGame(game.game_id);
+        gameMemory.savePlaylist = savePlaylist;
+
 
         // Create playlist
-        const playlist = await createSpotifyPlaylist(token.access_token, gameName, gameDescription, false);
+        const playlist = await createSpotifyPlaylist(access_token, gameName, gameDescription, false);
         await pool.query(`UPDATE games SET playlist_id = $1 WHERE game_id = $2`, [playlist.id, game.game_id]);
 
         // Insert host into game
@@ -115,10 +119,22 @@ router.post("/:gameId/join", async (req, res) => {
 
 router.post("/:gameId/add-songs", async (req, res) => {
     const { gameId } = req.params;
-    const { playerId, trackUris } = req.body;
-    const token = getOrCreateToken(gameId);
+    const { playerId, tracks } = req.body;
+    const token = req.hostTokens[gameId]?.access_token;
+    console.log("tracks being sent:", tracks);
 
-    if (!playerId || !trackUris || !Array.isArray(trackUris)) { return res.status(400).send("Missing playerId or trackUri"); }
+    const trackUris = tracks.map(track => track.uri);
+    const trackNames = tracks.map(track => track.title);
+    const trackArtists = tracks.map(track => track.artist);
+
+    if (!playerId || !trackUris || !Array.isArray(trackUris)) { return res.status(400).send("Missing playerId or tracks"); }
+
+    if (!trackNames || !Array.isArray(trackNames) || !trackArtists || !Array.isArray(trackArtists)) { return res.status(400).send("Missing trackNames or trackArtists"); }
+
+    if (trackUris.length !== trackNames.length || trackUris.length !== trackArtists.length || trackUris.length !== 3)
+    {
+        return res.status(400).send("Track length mismatch.");
+    }
 
     try {
         // Get playlist from game
@@ -147,17 +163,18 @@ router.post("/:gameId/add-songs", async (req, res) => {
 
         // Insert tracks into DB
         await pool.query("BEGIN"); // these ensure all tracks are added (or not)
-        for (const trackUri of trackUris)
+        for (const track of tracks)
         {
             await pool.query(`
-                INSERT INTO songs (game_id, player_id, track_uri)
-                VALUES ($1, $2, $3)
-            `, [gameId, playerId, trackUri])
+                INSERT INTO songs (game_id, player_id, track_uri, track_name, track_artist, duration_ms)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [gameId, playerId, track.uri, track.title, track.artist, track.duration_ms])
         }
         await pool.query("COMMIT");
 
         // Add song to spotify playlist
         console.log("Addings songs to Spotify Playlist: ", trackUris);
+        console.log("access_token call:", token);
         await addSpotifySongToPlaylist(token, trackUris, playlistId);
 
         // Fire event to room
@@ -242,7 +259,7 @@ router.get("/:gameId/state", async (req, res) => {
             `, [gameId])
         
         const songsListQuery = await pool.query(`
-            SELECT song_id, player_id, track_uri
+            SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms
             FROM songs
             WHERE game_id = $1
             `, [gameId]);
@@ -252,7 +269,19 @@ router.get("/:gameId/state", async (req, res) => {
             players: playersListQuery.rows,
             songs: songsListQuery.rows,
         }
-        res.status(200).json(gameState)
+
+        const gameMemory = getOrCreateGame(gameId) || {};
+
+        res.status(200).json({
+            ...gameState,
+            phase: gameMemory.phase,
+            currentSongIndex: gameMemory.currentSongIndex,
+            currentSong: gameMemory.queue ? gameMemory.queue[gameMemory.currentSongIndex] : null,
+            songAmountToAdd: gameMemory.songAmountToAdd,
+            currentRound: gameMemory.currentRound,
+            totalRounds: gameMemory.totalRounds
+            //leaderboard, votes
+        })
     } catch (err)
     {
         console.error("Game state cannot be found: ", err);

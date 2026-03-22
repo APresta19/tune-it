@@ -4,6 +4,13 @@
   min-height: 100vh;
   padding: 20px 0;
 }
+.guess-container
+{
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 .playback-container
 {
     display: flex;
@@ -28,9 +35,38 @@
 }
 .progress-bar-fill
 {
-    width: 20%;
     height: 8px;
     border-radius: 5px;
     background: var(--primary);
     transition: width .2s linear;
 }
+.scores {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.scores div {
+    display: flex;
+    justify-content: space-between;
+    width: 200px;
+    padding: 5px 10px;
+    border: 1px solid var(--primary);
+    border-radius: 5px;
+    background-color: var(--darker-white);
+}
+.scores .p-name {
+    font-weight: bold;
+}
+.scores .score {
+    font-size: 1.2em;
+}
+.player-list {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    width: 100%;
+} 

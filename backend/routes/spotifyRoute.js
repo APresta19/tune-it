@@ -79,4 +79,19 @@ router.post("/playlist/:playlistId/tracks", async (req, res) => {
   }
 });
 
+router.get("/search", async (req, res) => {
+  const { q, gameId } = req.query;
+  const token = req.hostTokens[gameId]?.access_token;
+  console.log("gameId:", gameId);
+  console.log("token:", token);
+  console.log("hostTokens:", req.hostTokens);
+  const response = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await response.json();
+  console.log("Spotify response status:", response.status);
+  console.log("Spotify response data:", data);
+  res.json(data);
+});
+
 export default router;

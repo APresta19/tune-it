@@ -1,0 +1,67 @@
+.leaderboard-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: var(--white);
+    width: 70%;
+    margin: 0 auto;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 40px;
+}
+
+.leaderboard-title {
+    font-size: 2rem;
+    color: var(--secondary);
+    margin-bottom: 20px;
+}
+
+.leaderboard-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--darker-white);
+    border-radius: 8px;
+    padding: 12px 20px;
+    border: 1px solid #00000011;
+}
+
+.leaderboard-item.first {
+    border: 2px solid var(--primary);
+    background-color: #FAB12F22;
+}
+
+.leaderboard-item.second {
+    border: 2px solid var(--secondary);
+}
+
+.leaderboard-item.third {
+    border: 2px solid var(--tertiary);
+}
+
+.leaderboard-rank {
+    font-size: 1.5rem;
+    font-weight: bold;
+    width: 40px;
+    color: var(--secondary);
+}
+
+.leaderboard-name {
+    flex: 1;
+    font-size: 1.2rem;
+    margin-left: 12px;
+}
+
+.leaderboard-score {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--primary);
+}

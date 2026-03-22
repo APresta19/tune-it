@@ -6,6 +6,7 @@ function CreateGame() {
   const [hostName, setHostName] = useState("");
   const [gameName, setGameName] = useState("");
   const [gameDescription, setGameDescription] = useState("");
+  const [savePlaylist, setSavePlaylist] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -28,7 +29,7 @@ function CreateGame() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ hostName, gameName, gameDescription }),
+          body: JSON.stringify({ hostName, gameName, gameDescription, access_token: localStorage.getItem("access_token"), savePlaylist }),
         }
       );
 
@@ -42,6 +43,7 @@ function CreateGame() {
       localStorage.setItem("playerId", data.host.player_id);
       localStorage.setItem("playerName", hostName);
       localStorage.setItem("gameId", data.game.game_id);
+      localStorage.setItem("isHost", "true");
 
       // Navigate to lobby page with gameId
       navigate(`/lobby/${data.game.game_id}`);
@@ -79,6 +81,15 @@ function CreateGame() {
           value={gameDescription}
           onChange={(e) => setGameDescription(e.target.value)}
         />
+
+        <label>
+          <input 
+              type="checkbox" 
+              checked={savePlaylist} 
+              onChange={e => setSavePlaylist(e.target.checked)} 
+          />
+          Save playlist after game
+      </label>
 
         {error && <span className="error-text">{error}</span>}
 

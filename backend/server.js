@@ -11,6 +11,7 @@ import spotifyRoute from "./routes/spotifyRoute.js";
 import gameRoute from "./routes/gameRoute.js";
 import { getGameState } from "./services/gameState.js";
 import { PHASES, getOrCreateGame, getGame, deleteGame, getAllGames } from "./services/liveGames.js";
+import { resumeToPipeableStream } from "react-dom/server";
 
 // Load env
 dotenv.config();
@@ -82,29 +83,59 @@ io.on("connection", (socket) => {
 
     const game = await getGameState(gameId);
 
+    // Store metadata
+    socket.gameId = gameId;
+    socket.playerId = playerId;
+
+    gameMemory.scores[playerId] = 0;
+
     socket.join(`game:${gameId}`);
     io.to(`game:${gameId}`).emit("gameState", game); // send to everyone (instead of socket.to)
+
+    if (gameMemory.phase === PHASES.PLAYING) {
+      socket.emit("playSong", { 
+        song: gameMemory.currentSong, 
+        songIndex: gameMemory.currentSongIndex 
+      });
+    }
   });
 
-  // This acts as a "ready up"
   socket.on("startGame", async ({ gameId, playerId }) => {
+    const gameMemory = getOrCreateGame(gameId);
+    
+    gameMemory.phase = PHASES.SELECTING;
+    io.to(`game:${gameId}`).emit("gameStarted");
+
+    const game = await getGameState(gameId);
+    console.log("Game state: ", game);
+    io.to(`game:${gameId}`).emit("gameState", {...game, phase: PHASES.SELECTING});
+  });
+
+  socket.on("submitSongs", async ({ gameId, playerId }) => {
     const gameMemory = getOrCreateGame(gameId);
     console.log("Player ", playerId, " is trying to start game: ", gameId);
 
-    if (!gameMemory) { return; }
+    if (!gameMemory)
+    { 
+      console.log("No game memory obj.");
+      return; 
+    }
 
-    // Fill individual player songs
+    // Get all songs per player
     const result = await pool.query(`
-      SELECT song_id
+      SELECT player_id, COUNT(*) AS song_count
       FROM songs
-      WHERE player_id = $1
-    `, [playerId]);
+      WHERE game_id = $1
+      GROUP BY player_id
+    `, [gameId]);
 
-    gameMemory.players[playerId].songsAdded = result.rows.length;
-
+    console.log("Result: ", result.rows);
     for (const pid in gameMemory.players)
     {
-      if (gameMemory.players[pid].songsAdded.length < gameMemory.songAmountToAdd)
+      console.log("Result rows: ", result.rows);
+      const playerSongs = result.rows.find(row => row.player_id == pid);
+      console.log(pid, " id songs: ", playerSongs);
+      if(!playerSongs || Number(playerSongs.song_count) !== gameMemory.songAmountToAdd)
       {
         console.log("A player doesn't have enough songs.")
         socket.emit("error", "A player doesn't have enough songs.")
@@ -112,11 +143,63 @@ io.on("connection", (socket) => {
       }
     }
 
+    // Set the queue
+    const queueQuery = await pool.query(`
+      SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms
+      FROM songs
+      WHERE game_id = $1
+      `, [gameId]);
+
+    // Set the live object attributes
+    gameMemory.queue = shuffleArray(queueQuery.rows);
     gameMemory.phase = PHASES.PLAYING;
-    io.to(`game:${gameId}`).emit("gameStarted");
+
+    // just make sure
+    gameMemory.currentSongIndex = 0;
+    gameMemory.currentRound = 0;
+
+    const curSong = gameMemory.queue[gameMemory.currentSongIndex];
+    gameMemory.currentSong = curSong;
+    gameMemory.correctPlayer = curSong.player_id;
 
     const game = await getGameState(gameId);
-    io.to(`game:${gameId}`).emit("gameState", {...game, phase: PHASES.PLAYING});
+    console.log("Game state after submission: ", game);
+    io.to(`game:${gameId}`).emit("gameState", game);
+
+    const room = io.sockets.adapter.rooms.get(`game:${gameId}`);
+    console.log("Room members:", room);
+    io.to(`game:${gameId}`).emit("playSong", { gameId, song: gameMemory.currentSong, songIndex: gameMemory.currentSongIndex });
+  });
+
+  socket.on("submitGuess", async ({ gameId, playerId, guessedPlayerId }) => {
+    const gameMemory = getOrCreateGame(gameId);
+
+    if (!gameMemory.players[playerId]) {
+      socket.emit("error", "Player doesn't exist.");
+      return;
+    }
+    
+    // Store guess
+    gameMemory.who_guessed.push(playerId);
+
+    // Check if all players guessed
+      // calc scores
+      // reveal correct player through emission
+      // emit roundResult --> { who_guessed, correct_player, scores }
+      // wait 3 seconds
+      // nextSong()
+    // Calculate scores
+    const isRight = guessedPlayerId === gameMemory.correctPlayer;
+    gameMemory.scores[playerId] = isRight ? gameMemory.scores[playerId] + 1 : gameMemory.scores[playerId];
+    console.log("Score: ", gameMemory.scores[playerId]);
+    if (gameMemory.who_guessed.length >= Object.keys(gameMemory.players).length)
+    {
+      io.to(`game:${gameId}`).emit("roundResult", { 
+        correct_player: gameMemory.correctPlayer,
+        scores: gameMemory.scores
+      })
+      setTimeout(() => nextSong(gameId), 3000);
+    }
   });
 
   socket.on("leaveGame", async ({ gameId, playerId }) => {
@@ -124,10 +207,6 @@ io.on("connection", (socket) => {
     console.log("Socket connected?", socket.connected);
     console.log("Socket ID:", socket.id);
     console.log("Rooms before leaving:", socket.rooms);
-
-    // Store metadata
-    socket.gameId = gameId;
-    socket.playerId = playerId;
     
     console.log(playerId, " is leaving the game.");
     if (!gameMemory || !gameMemory.players[playerId])
@@ -163,7 +242,23 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Delete the stuff
+    const playlistQuery = await pool.query(`SELECT playlist_id FROM games WHERE game_id = $1`, [gameId]);
+    const playlistId = playlistQuery.rows[0]?.playlist_id;
+    const token = hostTokens[gameId]?.access_token;
+
+    // Delete or save spotify playlist
+    const gameMemory = getOrCreateGame(gameId);
+    console.log("Save? ", gameMemory.savePlaylist);
+     if (token && playlistId) {
+        // delete the Spotify playlist
+        const token = hostTokens[gameId]?.access_token;
+        await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` }
+        });
+    }
+
+    // Delete the players
     await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
     delete allGames[gameId].players[playerId];
 
@@ -178,6 +273,52 @@ io.on("connection", (socket) => {
     console.log("Disconnected user: ", socket.id);
   });
 });
+
+function nextSong(gameId)
+{
+  const gameMemory = getOrCreateGame(gameId);
+  console.log("Switching to next song.");
+  gameMemory.who_guessed = [];
+
+  // Update current song index
+  gameMemory.currentSongIndex++;
+  const nextSong = gameMemory.queue[gameMemory.currentSongIndex];
+
+  // If last song --> roundOver
+  // If not --> playSong(nextSong, nextSongIndex)
+  if(!nextSong)
+  {
+    console.log("No next song.");
+    gameMemory.phase = PHASES.FINISHED;
+    io.to(`game:${gameId}`).emit("roundFinished", { scores: gameMemory.scores });
+    // Updates total_points in DB
+    return;
+  }
+  else
+  {
+    gameMemory.currentSong = nextSong;
+    gameMemory.correctPlayer = nextSong.player_id;
+    io.to(`game:${gameId}`).emit("playSong", { 
+      song: nextSong,
+      currentSongIndex: gameMemory.currentSongIndex
+    });
+  }
+}
+
+// Fisher-Yates shuffle
+function shuffleArray(arr)
+{
+  let currentIndex = arr.length;
+  while(currentIndex != 0)
+  {
+    currentIndex--;
+    const randomIndex = Math.floor(Math.random() * (currentIndex+1));
+
+    // Swap
+    [arr[currentIndex], arr[randomIndex]] = [arr[randomIndex], arr[currentIndex]]
+  }
+  return arr;
+}
 
 const hostTokens = {};
 let access_token = null;
@@ -220,6 +361,8 @@ app.get("/login", (req, res) => {
     "playlist-modify-public",
     "playlist-modify-private",
     "streaming",
+    "user-modify-playback-state",
+    "user-read-playback-state",
   ].join(" ");
 
   console.log("Redirecting to Spotify for authentication...");

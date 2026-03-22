@@ -1,10 +1,8 @@
-DROP TABLE IF EXISTS guesses;
-DROP TABLE IF EXISTS rounds;
-DROP TABLE IF EXISTS songs;
-DROP TABLE IF EXISTS players;
-DROP TABLE IF EXISTS games;
-
-CREATE TYPE game_state_enum AS ENUM ('lobby', 'playing', 'finished');
+/*DROP TABLE IF EXISTS guesses;*/
+/*DROP TABLE IF EXISTS rounds;*/
+DROP TABLE IF EXISTS songs CASCADE;
+DROP TABLE IF EXISTS players CASCADE;
+DROP TABLE IF EXISTS games CASCADE;
 
 
 CREATE TABLE IF NOT EXISTS games (
@@ -13,7 +11,6 @@ CREATE TABLE IF NOT EXISTS games (
     game_name TEXT,
     game_desc TEXT,
     playlist_id TEXT,
-    game_state game_state_enum NOT NULL DEFAULT 'lobby',
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -32,26 +29,29 @@ CREATE TABLE IF NOT EXISTS songs (
     game_id UUID REFERENCES games(game_id) ON DELETE CASCADE,
     player_id UUID REFERENCES players(player_id),
     track_uri TEXT NOT NULL,
+    track_name TEXT NOT NULL,
+    track_artist TEXT NOT NULL,
+    duration_ms INTEGER,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS rounds (
+/*CREATE TABLE IF NOT EXISTS rounds (
     round_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     current_round INTEGER NOT NULL,
     total_rounds INTEGER,
     game_id UUID REFERENCES games(game_id) ON DELETE CASCADE,
     song_id UUID REFERENCES songs(song_id) ON DELETE CASCADE,
     UNIQUE(game_id, current_round)
-);
+);*/
 
-CREATE TABLE IF NOT EXISTS guesses (
+/*CREATE TABLE IF NOT EXISTS guesses (
     guess_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     player_id UUID REFERENCES players(player_id) ON DELETE CASCADE,
     round_id UUID REFERENCES rounds(round_id) ON DELETE CASCADE,
     guessed_player_id UUID REFERENCES players(player_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(round_id, player_id)
-);
+);*/
 
 
 /*
