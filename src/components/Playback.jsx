@@ -153,7 +153,9 @@ function Playback()
     }
 
     useEffect(() => {
-        if (roomPlayerList.length > 0 && guessedRoomPlayerList.length === roomPlayerList.length && !revealed)
+        console.log("guessedRoomPlayerList:", guessedRoomPlayerList.length, "roomPlayerList:", roomPlayerList.length);
+        console.log("Revealed?:", revealed);
+        if (roomPlayerList.length > 0 && guessedRoomPlayerList.length === roomPlayerList.length)
         {
             // End the song
             endSong();
