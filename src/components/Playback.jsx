@@ -115,13 +115,19 @@ function Playback()
 
     }
 
+    const songEnded = useRef(false);
     function endSong()
     {
+        console.log("Before song ends. ");
+        if (songEnded.current) return;
+        songEnded.current = true;
+         console.log("Song ended after.");
         // Update revealed state
         setRevealed(true);
-
         setDisplayTimer(4);
         setTimeout(() => {
+            songEnded.current = false;
+            console.log("Trying to start next song...");
             startNextSong();
         }, 4000);
     }
@@ -137,6 +143,8 @@ function Playback()
 
     function startNextSong()
     {
+        console.log("startNextSong called");
+        console.log("guessId before reset:", guessId);
         setGuessedRoomPlayerList([]);
         setRevealed(false);
         setCurrentSongIndex(i => i + 1);

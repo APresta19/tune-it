@@ -19,7 +19,7 @@ function Landing() {
     navigate("/create");
   };
 
-  // Makem sure user is on Chrome
+  // Make sure user is on Chrome
   const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
   if (!isChrome) {
       alert("For the best experience as host, please use Chrome.");
