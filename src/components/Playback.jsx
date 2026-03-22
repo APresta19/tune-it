@@ -145,7 +145,7 @@ function Playback()
     }
 
     useEffect(() => {
-        if (roomPlayerList.length > 0 && guessedRoomPlayerList.length === roomPlayerList.length)
+        if (roomPlayerList.length > 0 && guessedRoomPlayerList.length === roomPlayerList.length && !revealed)
         {
             // End the song
             endSong();

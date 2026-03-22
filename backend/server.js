@@ -249,7 +249,7 @@ io.on("connection", (socket) => {
     // Delete or save spotify playlist
     const gameMemory = getOrCreateGame(gameId);
     console.log("Save? ", gameMemory.savePlaylist);
-     if (token && playlistId) {
+     if (token && playlistId && !gameMemory.savePlaylist) {
         // delete the Spotify playlist
         const token = hostTokens[gameId]?.access_token;
         await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
@@ -258,6 +258,8 @@ io.on("connection", (socket) => {
         });
     }
 
+    // Delete the songs
+    await pool.query(`DELETE FROM songs WHERE player_id = $1`, [playerId]);
     // Delete the players
     await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
     delete allGames[gameId].players[playerId];
