@@ -5,6 +5,7 @@ import "../css/Landing.css";
 function Landing() {
   const navigate = useNavigate();
   const token = localStorage.getItem("access_token");
+  const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     fetch(`${API_URL}/health`).catch(() => console.log("Server waking up..."));
