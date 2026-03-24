@@ -16,7 +16,7 @@ export async function getGameState(gameId)
         `, [gameId])
         
     const songsListQuery = await pool.query(`
-        SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms
+        SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms, image_url
         FROM songs
         WHERE game_id = $1
         `, [gameId]);

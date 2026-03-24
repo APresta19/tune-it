@@ -136,6 +136,21 @@ router.post("/:gameId/add-songs", async (req, res) => {
         return res.status(400).send("Track length mismatch.");
     }
 
+    // Ensure player hasn't already enough songs
+    const existingSongsQuery = await pool.query(`
+        SELECT song_id FROM songs WHERE game_id = $1 AND player_id = $2
+    `, [gameId, playerId]);
+
+    const gameMemory = getOrCreateGame(gameId) || {};
+    const attemptedSongAmount = tracks.length;
+    const songAmountToAdd = gameMemory.songAmountToAdd;
+    console.log("Songs query: ", existingSongsQuery);
+    if (existingSongsQuery.rows.length + attemptedSongAmount > songAmountToAdd)
+    {
+        res.status(409).send("Adding too many songs.");
+        return;
+    }
+
     try {
         // Get playlist from game
         const gameQuery = await pool.query(`
@@ -166,9 +181,9 @@ router.post("/:gameId/add-songs", async (req, res) => {
         for (const track of tracks)
         {
             await pool.query(`
-                INSERT INTO songs (game_id, player_id, track_uri, track_name, track_artist, duration_ms)
-                VALUES ($1, $2, $3, $4, $5, $6)
-            `, [gameId, playerId, track.uri, track.title, track.artist, track.duration_ms])
+                INSERT INTO songs (game_id, player_id, track_uri, track_name, track_artist, duration_ms, image_url)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [gameId, playerId, track.uri, track.title, track.artist, track.duration_ms, track.image_url])
         }
         await pool.query("COMMIT");
 

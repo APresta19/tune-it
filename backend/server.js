@@ -93,6 +93,7 @@ io.on("connection", (socket) => {
     io.to(`game:${gameId}`).emit("gameState", game); // send to everyone (instead of socket.to)
 
     if (gameMemory.phase === PHASES.PLAYING) {
+      console.log("Current song: ", gameMemory.currentSong);
       socket.emit("playSong", { 
         song: gameMemory.currentSong, 
         songIndex: gameMemory.currentSongIndex 
@@ -145,7 +146,7 @@ io.on("connection", (socket) => {
 
     // Set the queue
     const queueQuery = await pool.query(`
-      SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms
+      SELECT song_id, player_id, track_uri, track_name, track_artist, duration_ms, image_url
       FROM songs
       WHERE game_id = $1
       `, [gameId]);
@@ -182,6 +183,8 @@ io.on("connection", (socket) => {
     // Store guess
     gameMemory.who_guessed.push(playerId);
 
+    console.log("submitGuess received. who_guessed:", gameMemory.who_guessed.length, "players:", Object.keys(gameMemory.players).length);
+
     // Check if all players guessed
       // calc scores
       // reveal correct player through emission
@@ -194,6 +197,7 @@ io.on("connection", (socket) => {
     console.log("Score: ", gameMemory.scores[playerId]);
     if (gameMemory.who_guessed.length >= Object.keys(gameMemory.players).length)
     {
+      console.log("roundResult triggered");
       io.to(`game:${gameId}`).emit("roundResult", { 
         correct_player: gameMemory.correctPlayer,
         scores: gameMemory.scores

@@ -11,6 +11,7 @@ function AddSong() {
   const [songs, setSongs] = useState([]);
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL;
   const access_token = localStorage.getItem("access_token");
@@ -51,7 +52,8 @@ function AddSong() {
       id: item.id,
       title: item.name,
       artist: item.artists.map((artist) => artist.name).join(", "),
-      duration_ms: item.duration_ms
+      duration_ms: item.duration_ms,
+      image_url: item.album.images.length > 0 ? item.album.images[0].url : null,
     }));
 
     setSongs(songList);
@@ -66,7 +68,8 @@ function AddSong() {
     const artist = songElement.dataset.artist;
     const id = songElement.dataset.id;
     const duration_ms = songElement.dataset.duration_ms;
-    const newSong = { id, title, artist, duration_ms };
+    const image_url = songElement.dataset.image_url;
+    const newSong = { id, title, artist, duration_ms, image_url };
 
     // Check if the song is already in the selectedSongs array and add
     if (!selectedSongs.some((song) => song.id === id)) {
@@ -86,7 +89,7 @@ function AddSong() {
 
   async function handleDone() {
     if (selectedSongs.length != 3) {
-      alert("Please select exactly 3 songs before proceeding.");
+      setError("Please select exactly 3 songs before proceeding.");
       return;
     }
 
@@ -108,7 +111,8 @@ function AddSong() {
           uri: `spotify:track:${song.id}`,
           title: song.title,
           artist: song.artist,
-          duration_ms: song.duration_ms
+          duration_ms: song.duration_ms,
+          image_url: song.image_url,
         })),
       }),
     });
@@ -124,6 +128,8 @@ function AddSong() {
 
     const data = await response.text();
     console.log("Songs added successfully:", data);
+
+    setError("Waiting for other players to add songs...");
 
     // Instead of navigating do the socket stuff
     //navigate(`/playback/${gameId}`);
@@ -170,6 +176,7 @@ function AddSong() {
                 title={song.title}
                 artist={song.artist}
                 duration_ms={song.duration_ms}
+                image_url={song.image_url}
               />
             );
           })}
@@ -196,6 +203,7 @@ function AddSong() {
       >
         Done
       </button>
+      {error && <p className="error-message">{error}</p>}
     </div>
   );
 }

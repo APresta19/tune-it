@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS songs (
     track_uri TEXT NOT NULL,
     track_name TEXT NOT NULL,
     track_artist TEXT NOT NULL,
+    image_url TEXT,
     duration_ms INTEGER,
     created_at TIMESTAMP DEFAULT NOW()
 );

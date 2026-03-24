@@ -40,9 +40,10 @@ function Playback()
 
     useEffect(() => {
         // Socket setup
+
         socket.current = getSocket();
 
-         const join = () => {
+        const join = () => {
             console.log("Emitting joinGame...");
             socket.current.emit("joinGame", { gameId, playerId, playerName });
         };
@@ -70,6 +71,7 @@ function Playback()
         });
 
         socket.current.on("playSong", ({ song, songIndex }) => {
+            console.log("playSong event received with song:", song, "songIndex:", songIndex);
             setPlayerSong(song);
             setCurrentSongIndex(songIndex);
             setCurrentTime(song.position || 0);
@@ -91,6 +93,8 @@ function Playback()
         socket.current.on("roundResult", ({ correct_player, scores }) => {
             setCorrectPlayer(correct_player);
             setScores(scores);
+            // End the song
+            endSong();
         });
         socket.current.on("roundFinished", ({ scores }) => {
             setScores(scores);
@@ -152,18 +156,9 @@ function Playback()
         setGuessId(null);
     }
 
-    useEffect(() => {
-        console.log("guessedRoomPlayerList:", guessedRoomPlayerList.length, "roomPlayerList:", roomPlayerList.length);
-        console.log("Revealed?:", revealed);
-        if (roomPlayerList.length > 0 && guessedRoomPlayerList.length === roomPlayerList.length)
-        {
-            // End the song
-            endSong();
-        }
-    }, [guessedRoomPlayerList, roomPlayerList])
-
     // Initializes the Spotify Playback SDK
     useEffect(() => {
+        if (player.current) return; 
         function initializePlayer()
         {
             const token = localStorage.getItem("access_token");
@@ -182,17 +177,27 @@ function Playback()
                 console.log('Ready with Device ID', id);
 
                 // Switch to Tune-It Player
-                await fetch("https://api.spotify.com/v1/me/player", {
-                    method: "PUT",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        device_ids: [id],
-                        play: false
-                    })
-                });
+                let transferred = false;
+                for (let i = 0; i < 5; i++) { // retry a few times in case Spotify isn't ready
+                    const transferRes = await fetch("https://api.spotify.com/v1/me/player", {
+                        method: "PUT",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            device_ids: [id],
+                            play: false
+                        })
+                    });
+                    if (transferRes.ok) {
+                        console.log("Successfully transferred playback to Tune-It Player");
+                        transferred = true;
+                        break;
+                    }
+                    console.warn(`Attempt ${i + 1} to transfer playback failed. Status: ${transferRes.status}`);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retrying
+                }
 
                 if(pendingSong.current) {
                     console.log("Playing pending song:", pendingSong.current);
@@ -264,40 +269,60 @@ function Playback()
             prev.includes(playerName) ? prev : [...prev, playerName]
         );
 
-        const guessId = roomPlayerList.find(p => p.player_name === playerName)?.player_id;
-        setGuessId(guessId);
+        const gid = roomPlayerList.find(p => p.player_name === playerName)?.player_id;
+        setGuessId(gid);
 
         console.log("Handling guess...");
 
         socket.current.emit("submitGuess", {
             gameId,
             playerId,
-            guessedPlayerId: guessId
+            guessedPlayerId: gid
         });
     }
+
+    // useEffect(() => {
+    //     if (!deviceId.curremt || !playerSong) return;
+    //     console.log("Player song changed:", playerSong);
+    //     pendingSong.current = playerSong;
+    // }, [playerSong, deviceId.curre]);
 
     function renderCurrentSong() {
         const currentSong = playerSong;
         if (!currentSong) return <p>No song playing</p>;
         return (
-            <div>
+            <div className="current-song">
+                <img src={currentSong.image_url} alt="album art" className="album-art" />
                 <h3>{currentSong.track_name}</h3>
                 <p>{currentSong.track_artist}</p>
             </div>
         );
     }
 
+    // Was having issues with Spotify not starting playback on the first song with Firefox
+    // playSong will retry a few times to give Spotify some time
     async function playSong(uri, deviceId) {
         const token = localStorage.getItem("access_token");
         console.log("play body:", JSON.stringify({ uris: [uri], position_ms: 0 }));
-        const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-            method: "PUT",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ uris: [uri], position_ms: 0  })
-        });
+
+        let response;
+        for (let i = 0; i < 5; i++) { // retry a few times in case Spotify isn't ready
+            response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ uris: [uri], position_ms: 0  })
+            });
+            if (response.ok) {
+                console.log("Successfully started playback");
+                break;
+            }
+            console.warn(`Attempt ${i + 1} to start playback failed. Status: ${response.status}`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retrying
+        }
+
         const text = await response.text();
         console.log("playSong status:", response.status, "response:", text);
 
@@ -308,6 +333,8 @@ function Playback()
             method: "PUT",
             headers: { Authorization: `Bearer ${token}` }
         });
+
+        await player.current.resume(); // ensure resume?
 
         // Issues with navigation bar ONLY on navigation
         // This bit of code waits until we can get the state
@@ -362,7 +389,7 @@ function Playback()
                             key={player.player_id} 
                             name={player.player_name} 
                             disabled={guessId !== null} 
-                            isCorrect={revealed && player.player_id === correctPlayer}
+                            isCorrect={revealed ? player.player_id === correctPlayer : null}
                             onClick={() => handleGuess(player.player_name)}/>
                         ))}
                     </div>
