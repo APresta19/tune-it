@@ -1,7 +1,6 @@
 import express from "express";
 import { createSpotifyPlaylist, addSpotifySongToPlaylist } from "../services/spotifyService.js";
 import pool from "../db/pool.js";
-import { validateToken } from "../services/validateToken.js";
 import { getOrCreateGame } from "../services/liveGames.js";
 
 const router = express.Router();
@@ -46,8 +45,19 @@ router.post("/create", async (req, res) => {
 
     try 
     {
-        // Token validation
-        validateToken(access_token, gameName, gameDescription, false);
+        // Token validation and playlist creation
+        let playlist;
+        try {
+            console.log("Token status: ", access_token);
+            playlist = await createSpotifyPlaylist(access_token, gameName, gameDescription, false);
+        } catch (spotifyErr) {
+            // Check if Spotify returned a 401
+            if(spotifyErr.status === 401)
+            {
+                return res.status(401).json({ error: "Spotify session expired" });
+            }
+        }
+        console.log("Access token successful.");
 
         // Save game to DB
         // We need to allow room codes to be tried until it works
@@ -75,7 +85,7 @@ router.post("/create", async (req, res) => {
 
 
         // Create playlist
-        const playlist = await createSpotifyPlaylist(access_token, gameName, gameDescription, false);
+        //const playlist = await createSpotifyPlaylist(access_token, gameName, gameDescription, false);
         await pool.query(`UPDATE games SET playlist_id = $1 WHERE game_id = $2`, [playlist.id, game.game_id]);
 
         // Insert host into game

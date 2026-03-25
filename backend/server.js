@@ -356,7 +356,7 @@ app.get("/callback", async (req, res) => {
 
   // Redirect to frontend with access token
   const FRONTEND_URL = process.env.VITE_FRONTEND_URL;
-  res.redirect(`${FRONTEND_URL}?access_token=${data.access_token}`);
+  res.redirect(`${FRONTEND_URL}/create?access_token=${data.access_token}`);
 });
 
 app.get("/login", (req, res) => {

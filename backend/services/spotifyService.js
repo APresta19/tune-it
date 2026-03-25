@@ -1,8 +1,11 @@
 export async function createSpotifyPlaylist(token, gameName, description, isPublic) {
   if (!token) {
-    return new Error("No access token provided");
+    const error = new Error("No access token provided");
+    error.status = 401; // ensure error is 401, since that's what we are expecting
+    throw error;
   }
 
+  console.log("Token status2: ", token);
   const response = await fetch("https://api.spotify.com/v1/me/playlists", {
     method: "POST",
     headers: {
@@ -20,7 +23,9 @@ export async function createSpotifyPlaylist(token, gameName, description, isPubl
   const data = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    throw new Error(data.error?.message || "Spotify playlist creation failed");
+    const err = new Error(data.error?.message || "Spotify playlist creation failed");
+    err.status = response.status;
+    throw err;
   }
 
   console.log("Playlist created:", data);

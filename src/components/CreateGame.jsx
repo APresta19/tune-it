@@ -9,29 +9,62 @@ function CreateGame() {
   const [savePlaylist, setSavePlaylist] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [pendingCreate, setPendingCreate] = useState(false);
 
   const navigate = useNavigate();
 
   function sendToSpotifyLogin() {
+    console.log("Redirecting to Spotify login...");
     window.location.href = `${import.meta.env.VITE_API_URL}/login`;
   }
 
-  // useEffect(() => {
-  //   const params = new URLSearchParams(window.location.search);
-  //   const justLoggedIn = params.get("login") === "success";
-  //   const token = localStorage.getItem("access_token");
-  //   if (!token) {
-  //     sendToSpotifyLogin();
-  //   } else if (justLoggedIn) {
-  //     handleCreateGame(); // fresh token, create game
-  //     window.history.replaceState({}, document.title, "/create"); // prevent handleCreateGame from being called again
-  //   }
-  // }, []);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("access_token");
+
+    if (token) {
+      // Save token
+      localStorage.setItem("access_token", token);
+      console.log("Spotify token saved", token);
+
+      const savedGame = localStorage.getItem("pending_game");
+      if (savedGame) {
+        const parsed = JSON.parse(savedGame);
+        setHostName(parsed.hostName);
+        setGameName(parsed.gameName);
+        setGameDescription(parsed.gameDescription);
+        setSavePlaylist(parsed.savePlaylist);
+        setPendingCreate(true);
+        localStorage.removeItem("pending_game");
+      }
+
+      // Clean URL for token
+      window.history.replaceState({}, document.title, "/create");
+    }
+
+  }, []);
+
+  useEffect(() => {
+      if (pendingCreate && hostName) {
+          setPendingCreate(false);
+          handleCreateGame();
+      }
+  }, [pendingCreate, hostName]);
 
   async function handleCreateGame() {
+    const token = localStorage.getItem("access_token");
 
+    console.log("Creating game with:", { hostName, gameName, gameDescription, savePlaylist, token });
     if (!hostName.trim()) {
       setError("Please enter your name");
+      return;
+    }
+
+    if (!token) {
+      const draft = { hostName, gameName, gameDescription, savePlaylist };
+      localStorage.setItem("pending_game", JSON.stringify(draft));
+      console.log(localStorage.getItem("pending_game"));
+      sendToSpotifyLogin();
       return;
     }
 

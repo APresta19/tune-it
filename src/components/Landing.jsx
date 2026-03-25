@@ -12,10 +12,10 @@ function Landing() {
   }, []);
 
   const handleCreateGame = () => {
-    if (!token) {
-      alert("Please log in with Spotify to create a game.");
-      return;
-    }
+    // if (!token) {
+    //   alert("Please log in with Spotify to create a game.");
+    //   return;
+    // }
     navigate("/create");
   };
 
