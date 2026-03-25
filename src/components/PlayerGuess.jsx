@@ -4,7 +4,6 @@ import { Check, X } from "lucide-react";
 function PlayerGuess({name, disabled, isCorrect, onClick})
 {
     function handleCorrectnessIcon(isCorrect) {
-        console.log("isCorrect:", isCorrect);
         if (isCorrect === true) {
             return <Check size={32} className="guess-marker" color="green" />;
         } else if (isCorrect === false) {
@@ -15,7 +14,7 @@ function PlayerGuess({name, disabled, isCorrect, onClick})
 
     return(
         <div className="player-guess-container">
-            <button className="player-guess" onClick={onClick} 
+            <button className="player-guess primary" onClick={onClick} 
             disabled={disabled} 
             style={{ opacity: disabled ? 0.5 : 1, cursor: disabled ? 'default' : 'pointer' }}>
                 <h2>{name}</h2>

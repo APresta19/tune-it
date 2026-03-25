@@ -28,13 +28,12 @@ function Landing() {
         </p>
 
         <div className="button-group">
-          <button onClick={() => window.location.href = `${import.meta.env.VITE_API_URL}/login`} id="spotify-login">Login with Spotify</button>
-          <button onClick={handleCreateGame}>
+          <button onClick={handleCreateGame} className="tertiary">
             Create Game
           </button>
 
           <button
-            className="secondary-button"
+            className="tertiary"
             onClick={() => navigate("/join")}
           >
             Join Game

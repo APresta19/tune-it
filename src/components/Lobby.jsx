@@ -104,10 +104,10 @@ function Lobby() {
       </div>
 
       <div className="lobby-actions">
-        <button onClick={handleLeaveLobby}>
+        <button onClick={handleLeaveLobby} className="secondary">
           Leave Lobby
         </button>
-        <button onClick={() => handleGameStart()}>
+        <button onClick={() => handleGameStart()} className="tertiary">
           Start Game
         </button>
       </div>

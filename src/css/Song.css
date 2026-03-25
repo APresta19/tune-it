@@ -1,6 +1,6 @@
 .song-container
 {
-    background-color: var(--white);
+    background-color: var(--surface);
     border: 1px solid var(--primary);
     border-radius: 8px;
     width: 80%;
@@ -14,10 +14,15 @@
 {
     cursor: pointer;
     background-color: var(--primary);
-    color: var(--white);
+    color: var(--text-primary);
+}
+
+.song-container:active
+{
+    background-color: var(--primary-clicked);
 }
 
 .selected
 {
-    background-color: var(--clicked);
+    background-color: var(--primary-clicked);
 }

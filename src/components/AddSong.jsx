@@ -151,10 +151,6 @@ function AddSong() {
 
   return (
     <div className="add-container">
-      <p>If no songs appear when searching, click this button.</p>
-      <a href={`${API_URL}/login`}>
-        <button>Login with Spotify</button>
-      </a>
 
       <h1>Add Song</h1>
       <input
@@ -192,7 +188,7 @@ function AddSong() {
               <p>{songDiv.artist}</p>
             </div>
             <div id="added-song-right">
-              <button onClick={handleSongRemove}>Remove</button>
+              <button className="secondary" onClick={handleSongRemove}>Remove</button>
             </div>
           </div>
         ))}
@@ -200,6 +196,7 @@ function AddSong() {
       <button
         style={{ fontSize: "16px", padding: "10px 50px" }}
         onClick={handleDone}
+        className="primary"
       >
         Done
       </button>

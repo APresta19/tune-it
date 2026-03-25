@@ -376,7 +376,7 @@ function Playback()
         <>
             <div className="playback-container">
                 {localStorage.getItem("isHost") === "true" && (
-                    <button id="togglePlay" onClick={() => handleTogglePlay()}>Play/Pause</button>
+                    <button className="secondary" id="togglePlay" onClick={() => handleTogglePlay()}>Play/Pause</button>
                 )}
                 <h2>Now Playing</h2>
                 {renderCurrentSong()}

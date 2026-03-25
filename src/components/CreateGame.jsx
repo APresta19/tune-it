@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../css/CreateGame.css";
 
@@ -12,7 +12,24 @@ function CreateGame() {
 
   const navigate = useNavigate();
 
+  function sendToSpotifyLogin() {
+    window.location.href = `${import.meta.env.VITE_API_URL}/login`;
+  }
+
+  // useEffect(() => {
+  //   const params = new URLSearchParams(window.location.search);
+  //   const justLoggedIn = params.get("login") === "success";
+  //   const token = localStorage.getItem("access_token");
+  //   if (!token) {
+  //     sendToSpotifyLogin();
+  //   } else if (justLoggedIn) {
+  //     handleCreateGame(); // fresh token, create game
+  //     window.history.replaceState({}, document.title, "/create"); // prevent handleCreateGame from being called again
+  //   }
+  // }, []);
+
   async function handleCreateGame() {
+
     if (!hostName.trim()) {
       setError("Please enter your name");
       return;
@@ -32,6 +49,13 @@ function CreateGame() {
           body: JSON.stringify({ hostName, gameName, gameDescription, access_token: localStorage.getItem("access_token"), savePlaylist }),
         }
       );
+
+      if (response.status === 401) {
+        // Token is stale. Clear and re-auth
+        localStorage.removeItem("access_token");
+        sendToSpotifyLogin();
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("Failed to create game");
@@ -93,7 +117,7 @@ function CreateGame() {
 
         {error && <span className="error-text">{error}</span>}
 
-        <button onClick={handleCreateGame} disabled={loading}>
+        <button onClick={handleCreateGame} disabled={loading} className="primary">
           {loading ? "Creating..." : "Create Game"}
         </button>
       </div>

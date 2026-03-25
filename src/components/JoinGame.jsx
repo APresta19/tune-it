@@ -63,7 +63,7 @@ function JoinGame()
                 <input type="text" placeholder="Enter your name" onChange={handlePlayerNameChange}/>
                 <input type="text" placeholder="Enter game code" onChange={handleRoomCodeChange}/>
                 {error && <span className="error-text">{error}</span>}
-                <button onClick={handleJoin} disabled={loading}>
+                <button onClick={handleJoin} disabled={loading} className="primary">
                     {loading ? "Joining" : "Join Game"}
                 </button>
             </div>

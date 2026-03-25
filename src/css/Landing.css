@@ -45,13 +45,9 @@
   color: var(--white);
 }
 
-#spotify-login {
-  background-color: #1db954;
-  color: var(--white);
-}
-#spotify-login:hover {
-  background-color: #14873d;
-  color: var(--white);
+.landing-card h1
+{
+  color: var(--primary);
 }
 
 /*.note

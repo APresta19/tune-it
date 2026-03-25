@@ -1,7 +1,7 @@
 import express from "express";
 import { createSpotifyPlaylist, addSpotifySongToPlaylist } from "../services/spotifyService.js";
 import pool from "../db/pool.js";
-import getOrCreateToken from "../services/hostTokens.js";
+import { validateToken } from "../services/validateToken.js";
 import { getOrCreateGame } from "../services/liveGames.js";
 
 const router = express.Router();
@@ -46,6 +46,9 @@ router.post("/create", async (req, res) => {
 
     try 
     {
+        // Token validation
+        validateToken(access_token, gameName, gameDescription, false);
+
         // Save game to DB
         // We need to allow room codes to be tried until it works
         let roomCode;
