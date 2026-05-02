@@ -23,6 +23,7 @@ export function getOrCreateGame(gameId) {
       createdAt: Date.now(),
       queue: [], // song queue (should've been more specific)
       savePlaylist: true,
+      promptMode: false,
     };
   }
   return liveGames[gameId];

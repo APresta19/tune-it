@@ -4,7 +4,7 @@ import ProgressBar from "./ProgressBar";
 import PlayerGuess from "./PlayerGuess";
 import { io } from "socket.io-client";
 import { getSocket } from "../../backend/services/socket.js";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 function Playback() 
 {
@@ -13,12 +13,14 @@ function Playback()
     const latestStateTime = useRef(0);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
+    const navigate = useNavigate();
 
     // Gamestate logic
     const [songs, setSongs] = useState([]);
     const [currentSongIndex, setCurrentSongIndex] = useState(0);
     const [roomPlayerList, setRoomPlayerList] = useState([]);
     const [guessedRoomPlayerList, setGuessedRoomPlayerList] = useState([]);
+    const roomPlayerListRef = useRef([]);
     const [guessId, setGuessId] = useState(null);
     const [playerSong, setPlayerSong] = useState(null);
     const [revealed, setRevealed] = useState(false);
@@ -64,10 +66,6 @@ function Playback()
             setSongs(state.songs);
             console.log("State songs:", state.songs);
             setCurrentSongIndex(state.currentSongIndex);
-
-            if (state.phase === "finished") {
-                navigate(`/leaderboard/${gameId}`);
-            }
         });
 
         socket.current.on("playSong", ({ song, songIndex }) => {
@@ -100,7 +98,9 @@ function Playback()
             setScores(scores);
             // Maybe show some end of round screen here
             console.log("Round finished with scores:", scores);
-            player.current?.pause(); 
+            player.current?.pause();
+            console.log("Navigating to leaderboard with scores:", scores, "and players:", roomPlayerList);
+            navigate(`/leaderboard/${gameId}`, { state: { scores, players: roomPlayerListRef.current } });
         });
 
         return () => { 
@@ -149,6 +149,7 @@ function Playback()
     {
         console.log("startNextSong called");
         console.log("guessId before reset:", guessId);
+
         setGuessedRoomPlayerList([]);
         setRevealed(false);
         setCurrentSongIndex(i => i + 1);
@@ -372,15 +373,25 @@ function Playback()
         return id;
     }
 
+    useEffect(() => {
+        roomPlayerListRef.current = roomPlayerList;
+    }, [roomPlayerList]);
+
+    useEffect(() => {
+        console.log("Player song updated:", playerSong);
+    }, [playerSong]);
+
     return (
         <>
             <div className="playback-container">
+                
                 {localStorage.getItem("isHost") === "true" && (
                     <button className="secondary" id="togglePlay" onClick={() => handleTogglePlay()}>Play/Pause</button>
                 )}
                 <h2>Now Playing</h2>
                 {renderCurrentSong()}
                 <ProgressBar currentTime={currentTime} duration={duration} />
+
                 <div className="guess-container">
                     <h2>Guess Who</h2>
                     <div className="player-list">

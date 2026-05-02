@@ -6,9 +6,11 @@ export function getSocket()
 {
     if(!socket)
     {
-        socket = io(import.meta.env.VITE_API_URL, {
-            transports: ['websocket'],
-        })
+        socket = io({
+            transports: ['websocket', 'polling'],
+            autoConnect: true,
+            withCredentials: true
+        });
     }
     return socket;
 }

@@ -6,4 +6,4 @@ app.get("/", (req, res) => {
   res.send("Hello world!");
 });
 
-app.listen(3001, () => console.log("Server running on 3001"));
+app.listen(3001, "0.0.0.0", () => console.log("Server running on 3001"));

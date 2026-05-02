@@ -1,7 +1,7 @@
 .song-container
 {
     background-color: var(--surface);
-    border: 1px solid var(--primary);
+    border: 1px solid var(--border);
     border-radius: 8px;
     width: 80%;
     padding: 10px;
@@ -12,9 +12,10 @@
 }
 .song-container:hover
 {
-    cursor: pointer;
-    background-color: var(--primary);
     color: var(--text-primary);
+    border-color: var(--text-primary);
+    background-color: var(--surface-hover);
+    cursor: pointer;
 }
 
 .song-container:active

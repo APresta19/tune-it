@@ -7,10 +7,14 @@
   flex-direction: column;
   align-items: center;
   background-color: var(--white);
-  width: 70%;
   border: 1px solid var(--primary);
   border-radius: 8px;
   padding: 20px;
+  width: 70%;
+  max-width: 800px;
+  padding-bottom: 40px;
+  overflow: visible;
+  margin-bottom: 40px;
 }
 
 #root {
@@ -18,6 +22,7 @@
   justify-content: center;
   min-height: 100vh;
   padding: 20px 0;
+  align-items: flex-start;
 }
 
 #add-search {
@@ -46,8 +51,8 @@ input:focus
 
 .added-song
 {
-    background-color: var(--white);
-    border: 1px solid var(--primary);
+    background-color: var(--background);
+    border: 1px solid #4b4b4b;
     border-radius: 8px;
     width: 100%;
     padding: 30px 10px;
@@ -71,7 +76,7 @@ input:focus
     height: 50px;
     object-fit: cover;
     border-radius: 4px;
-    border: 1px solid var(--primary);
+    border: 1px solid var(--surface);
 }
 .error-message {
   color: var(--error);
@@ -98,8 +103,8 @@ input:focus
   min-height: 400px;
   overflow-y: auto;
   padding-right: 5px;
-  border: 1px solid var(--primary);
-  background-color: var(--darker-white);
+  border: 1px solid var(--border);
+  background-color: var(--background);
   border-radius: 8px;
   padding: 10px;
 }
@@ -138,4 +143,17 @@ input:focus
 @media (prefers-color-scheme: dark) {
   .songs-list::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
   .songs-list { scrollbar-color: var(--primary) rgba(255,255,255,0.02); }
+}
+
+@media (max-width: 768px) {
+    .add-container {
+        width: 95%;
+        padding: 12px;
+    }
+
+    .songs-list,
+    .added-songs,
+    #add-search {
+        width: 100%;
+    }
 }

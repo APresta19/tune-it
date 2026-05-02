@@ -11,13 +11,16 @@ import spotifyRoute from "./routes/spotifyRoute.js";
 import gameRoute from "./routes/gameRoute.js";
 import { getGameState } from "./services/gameState.js";
 import { PHASES, getOrCreateGame, getGame, deleteGame, getAllGames } from "./services/liveGames.js";
+import { handlePlayerLeave } from "./services/handlePlayerLeave.js";
 import { resumeToPipeableStream } from "react-dom/server";
+import shuffleArray from "./services/shuffleArray.js";
 
 // Load env
 dotenv.config();
 
 const app = express();
 const client_id = process.env.SPOTIFY_CLIENT_ID;
+//const redirect_uri = `${process.env.VITE_API_URL}/callback`;
 const redirect_uri = process.env.SPOTIFY_REDIRECT_URI;
 
 app.use(express.json());
@@ -27,7 +30,9 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: true,
+    methods: ["GET", "POST"],
+    credentials: true
   },
 });
 
@@ -131,12 +136,13 @@ io.on("connection", (socket) => {
     `, [gameId]);
 
     console.log("Result: ", result.rows);
+    const numSongs = Number(gameMemory.songAmountToAdd);
     for (const pid in gameMemory.players)
     {
       console.log("Result rows: ", result.rows);
       const playerSongs = result.rows.find(row => row.player_id == pid);
       console.log(pid, " id songs: ", playerSongs);
-      if(!playerSongs || Number(playerSongs.song_count) !== gameMemory.songAmountToAdd)
+      if(!playerSongs || Number(playerSongs.song_count) !== numSongs)
       {
         console.log("A player doesn't have enough songs.")
         socket.emit("error", "A player doesn't have enough songs.")
@@ -202,7 +208,10 @@ io.on("connection", (socket) => {
         correct_player: gameMemory.correctPlayer,
         scores: gameMemory.scores
       })
-      setTimeout(() => nextSong(gameId), 3000);
+
+      const game = await getGameState(gameId);
+      io.to(`game:${gameId}`).emit("gameState", game);
+      setTimeout(async () => await nextSong(gameId), 3000);
     }
   });
 
@@ -219,12 +228,8 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // If player is host, force everyone to leave
-
-    await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
-
-    deleteGame(gameId);
-
+    // Player leave
+    handlePlayerLeave(io, hostTokens, playerId, gameId);
     socket.leave(`game:${gameId}`);
 
     console.log("Rooms after leaving:", socket.rooms);
@@ -238,7 +243,6 @@ io.on("connection", (socket) => {
     console.log("Socket disconnected.");
 
     const { gameId, playerId } = socket;
-    const allGames = getAllGames();
 
     if (!gameId || !playerId)
     {
@@ -262,25 +266,11 @@ io.on("connection", (socket) => {
         });
     }
 
-    // Delete the songs
-    await pool.query(`DELETE FROM songs WHERE player_id = $1`, [playerId]);
-    // Delete the players
-    await pool.query(`DELETE FROM players WHERE player_id = $1`, [playerId]);
-    delete allGames[gameId].players[playerId];
-
-    // Update game state
-    const gameState = await getGameState(gameId);
-    io.to(`game:${gameId}`).emit("gameState", gameState);
-
-    // Remove empty games from memory
-    if (Object.keys(allGames[gameId].players).length === 0) { // Objects in JS dont have a length but arrays do
-      delete allGames[gameId];
-    }
-    console.log("Disconnected user: ", socket.id);
+    handlePlayerLeave(io, hostTokens, playerId, gameId);
   });
 });
 
-function nextSong(gameId)
+async function nextSong(gameId)
 {
   const gameMemory = getOrCreateGame(gameId);
   console.log("Switching to next song.");
@@ -297,7 +287,15 @@ function nextSong(gameId)
     console.log("No next song.");
     gameMemory.phase = PHASES.FINISHED;
     io.to(`game:${gameId}`).emit("roundFinished", { scores: gameMemory.scores });
-    // Updates total_points in DB
+
+    const game = await getGameState(gameId);
+    io.to(`game:${gameId}`).emit("gameState", game);
+
+    setTimeout(() => {
+        delete hostTokens[gameId];
+        deleteGame(gameId);
+        pool.query(`DELETE FROM games WHERE game_id = $1`, [gameId]);
+    }, 30000);
     return;
   }
   else
@@ -311,24 +309,9 @@ function nextSong(gameId)
   }
 }
 
-// Fisher-Yates shuffle
-function shuffleArray(arr)
-{
-  let currentIndex = arr.length;
-  while(currentIndex != 0)
-  {
-    currentIndex--;
-    const randomIndex = Math.floor(Math.random() * (currentIndex+1));
-
-    // Swap
-    [arr[currentIndex], arr[randomIndex]] = [arr[randomIndex], arr[currentIndex]]
-  }
-  return arr;
-}
-
 const hostTokens = {};
 let access_token = null;
-app.get("/callback", async (req, res) => {
+app.get("/api/callback", async (req, res) => {
   const code = req.query.code || null;
 
   const body = new URLSearchParams({
@@ -359,7 +342,7 @@ app.get("/callback", async (req, res) => {
   res.redirect(`${FRONTEND_URL}/create?access_token=${data.access_token}`);
 });
 
-app.get("/login", (req, res) => {
+app.get("/api/login", (req, res) => {
   const state = Math.random().toString(36).substring(2, 15);
   const scope = [
     "user-read-email",
@@ -387,7 +370,7 @@ app.get("/login", (req, res) => {
 });
 
 app.use(
-  "/users",
+  "/api/users",
   (req, res, next) => {
     req.hostTokens = hostTokens;
     next();
@@ -396,7 +379,7 @@ app.use(
 );
 
 app.use(
-  "/spotify",
+  "/api/spotify",
   (req, res, next) => {
     req.hostTokens = hostTokens;
     next();
@@ -405,7 +388,7 @@ app.use(
 );
 
 app.use(
-  "/game",
+  "/api/game",
   (req, res, next) => {
     req.hostTokens = hostTokens;
     next();
@@ -413,7 +396,7 @@ app.use(
   gameRoute,
 );
 
-app.get("/health", (req, res) => res.send("ok"));
+app.get("/api/health", (req, res) => res.send("ok"));
 
 server.listen(process.env.PORT || 3001, () => {
   console.log(`HTTP + Socket.io server running on localhost:${process.env.PORT || 3001}`);

@@ -9,6 +9,7 @@
     border-radius: 8px;
     padding: 20px;
     margin-top: 40px;
+    min-height: 800px;
 }
 
 .leaderboard-title {

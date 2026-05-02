@@ -4,10 +4,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: var(--background);
 }
 
 .landing-card {
-  background-color: var(--white);
+  background-color: var(--surface);
   padding: 40px;
   border-radius: 10px;
   width: 360px;

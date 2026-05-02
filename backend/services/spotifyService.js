@@ -54,3 +54,20 @@ export async function addSpotifySongToPlaylist(token, uri_list, playlist_id) {
   console.log("Track added:", data);
   return data;
 }
+
+export async function getAudioAnalysis(track_id)
+{
+  try {
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(`https://api.spotify.com/v1/audio-analysis/${track_id}`, {
+         headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    console.log(data);
+    console.log("status: ", response.status);
+    return data;
+  } catch (err)
+  {
+    console.error("Cannot get audio analysis.", err);
+  }  
+}

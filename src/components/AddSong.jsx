@@ -1,9 +1,10 @@
 import "../css/AddSong.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { getSocket } from "../../backend/services/socket.js";
 import { useNavigate } from "react-router-dom";
 import Song from "./Song";
+import { prompts, getRandomPrompts } from "../data/promptConfig.js";
 
 function AddSong() {
   const navigate = useNavigate();
@@ -12,11 +13,24 @@ function AddSong() {
   const [selectedSongs, setSelectedSongs] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
+  const [songAmountToAdd, setSongAmountToAdd] = useState(3);
 
   const API_URL = import.meta.env.VITE_API_URL;
   const access_token = localStorage.getItem("access_token");
   const { gameId } = useParams();
   const socket = getSocket();
+
+  useEffect(() => {
+    fetch(`${API_URL}/game/${gameId}/state`)
+      .then((res) => res.json())
+      .then((state) => {
+        setSongAmountToAdd(state.songAmountToAdd);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch game state:", err);
+        setError("Failed to fetch game state. Please try again.");
+      });
+  }, []);
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -88,8 +102,8 @@ function AddSong() {
   }
 
   async function handleDone() {
-    if (selectedSongs.length != 3) {
-      setError("Please select exactly 3 songs before proceeding.");
+    if (selectedSongs.length != songAmountToAdd) {
+      setError(`Please select exactly ${songAmountToAdd} songs before proceeding.`);
       return;
     }
 
@@ -152,7 +166,7 @@ function AddSong() {
   return (
     <div className="add-container">
 
-      <h1>Add Song</h1>
+      <h1>Add {songAmountToAdd} Songs</h1>
       <input
         id="add-search"
         type="text"
@@ -193,6 +207,7 @@ function AddSong() {
           </div>
         ))}
       </div>
+      {error && <p className="error-message">{error}</p>}
       <button
         style={{ fontSize: "16px", padding: "10px 50px" }}
         onClick={handleDone}
@@ -200,7 +215,6 @@ function AddSong() {
       >
         Done
       </button>
-      {error && <p className="error-message">{error}</p>}
     </div>
   );
 }

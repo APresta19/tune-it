@@ -34,13 +34,17 @@ function createRoomCode(length = 6)
 router.post("/create", async (req, res) => {
     // Create a game --> marked as host
 
-    const { hostName, gameName, gameDescription, access_token, savePlaylist } = req.body;
+    const { hostName, gameName, gameDescription, access_token, savePlaylist, songAmountToAdd, promptMode } = req.body;
+    console.log("Song amount on creation: ", songAmountToAdd);
 
     if(!hostName) { 
         return res.status(400).send("No hostname provided.")
     }
     if(!gameDescription) {
         return res.status(400).send("No description provided.")
+    }
+    if (isNaN(songAmountToAdd) || songAmountToAdd < 1 || songAmountToAdd > 10) {
+        return res.status(400).send("Invalid number of songs (1-10 only)");
     }
 
     try 
@@ -82,6 +86,8 @@ router.post("/create", async (req, res) => {
         req.hostTokens[game.game_id] = { access_token };
         const gameMemory = getOrCreateGame(game.game_id);
         gameMemory.savePlaylist = savePlaylist;
+        gameMemory.songAmountToAdd = songAmountToAdd || 3;
+        gameMemory.promptMode = promptMode;
 
 
         // Create playlist
@@ -141,10 +147,16 @@ router.post("/:gameId/add-songs", async (req, res) => {
     const trackArtists = tracks.map(track => track.artist);
 
     if (!playerId || !trackUris || !Array.isArray(trackUris)) { return res.status(400).send("Missing playerId or tracks"); }
-
+    
     if (!trackNames || !Array.isArray(trackNames) || !trackArtists || !Array.isArray(trackArtists)) { return res.status(400).send("Missing trackNames or trackArtists"); }
-
-    if (trackUris.length !== trackNames.length || trackUris.length !== trackArtists.length || trackUris.length !== 3)
+    
+    const gameMemory = getOrCreateGame(gameId) || {};
+    const numberOfSongs = Number(gameMemory.songAmountToAdd);
+    const isPromptMode = gameMemory.promptMode;
+    console.log("Track uri length: ", trackUris.length);
+    console.log("Number of songs: ", numberOfSongs);
+    console.log("Is prompt mode? ", isPromptMode);
+    if (trackUris.length !== trackNames.length || trackUris.length !== trackArtists.length || trackUris.length !== numberOfSongs)
     {
         return res.status(400).send("Track length mismatch.");
     }
@@ -154,7 +166,6 @@ router.post("/:gameId/add-songs", async (req, res) => {
         SELECT song_id FROM songs WHERE game_id = $1 AND player_id = $2
     `, [gameId, playerId]);
 
-    const gameMemory = getOrCreateGame(gameId) || {};
     const attemptedSongAmount = tracks.length;
     const songAmountToAdd = gameMemory.songAmountToAdd;
     console.log("Songs query: ", existingSongsQuery);

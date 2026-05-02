@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import "../css/CreateGame.css";
 
 function CreateGame() {
+  const [songAmountToAdd, setSongAmountToAdd] = useState("");
   const [hostName, setHostName] = useState("");
   const [gameName, setGameName] = useState("");
   const [gameDescription, setGameDescription] = useState("");
   const [savePlaylist, setSavePlaylist] = useState(false);
+  const [promptMode, setPromptMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [pendingCreate, setPendingCreate] = useState(false);
 
   const navigate = useNavigate();
 
@@ -28,14 +29,17 @@ function CreateGame() {
       console.log("Spotify token saved", token);
 
       const savedGame = localStorage.getItem("pending_game");
+      console.log("Saved game:", savedGame);
       if (savedGame) {
         const parsed = JSON.parse(savedGame);
         setHostName(parsed.hostName);
         setGameName(parsed.gameName);
         setGameDescription(parsed.gameDescription);
         setSavePlaylist(parsed.savePlaylist);
-        setPendingCreate(true);
+        setPromptMode(parsed.promptMode);
+        setSongAmountToAdd(parsed.songAmountToAdd);
         localStorage.removeItem("pending_game");
+        handleCreateGame({ ...parsed, token });
       }
 
       // Clean URL for token
@@ -44,26 +48,35 @@ function CreateGame() {
 
   }, []);
 
-  useEffect(() => {
-      if (pendingCreate && hostName) {
-          setPendingCreate(false);
-          handleCreateGame();
-      }
-  }, [pendingCreate, hostName]);
+  async function handleCreateGame(overrides = {}) {
+    const token = overrides.token || localStorage.getItem("access_token");
+    const name = overrides.hostName || hostName;
+    const game = overrides.gameName || gameName;
+    const desc = overrides.gameDescription || gameDescription;
+    const songAmount = overrides.songAmountToAdd || songAmountToAdd;
+    const save = overrides.savePlaylist ?? savePlaylist;
+    console.log("Overrides in handleCreateGame:", overrides.promptMode);
+    const promptMode = overrides.promptMode;
 
-  async function handleCreateGame() {
-    const token = localStorage.getItem("access_token");
+    console.log("overrides:", overrides);
+    console.log("name:", name);
+    console.log("token:", token);
 
-    console.log("Creating game with:", { hostName, gameName, gameDescription, savePlaylist, token });
-    if (!hostName.trim()) {
+    const amount = Number(songAmount);
+    if (!amount || amount < 1 || amount > 10) {
+      setError("Number of songs must be between 1 and 10");
+      return;
+    }
+
+    if (!name.trim()) {
       setError("Please enter your name");
       return;
     }
 
     if (!token) {
-      const draft = { hostName, gameName, gameDescription, savePlaylist };
+      const draft = { hostName: name, gameName: game, gameDescription: desc, savePlaylist: save, promptMode, songAmountToAdd: amount };
       localStorage.setItem("pending_game", JSON.stringify(draft));
-      console.log(localStorage.getItem("pending_game"));
+      console.log("Pending game saved:", localStorage.getItem("pending_game"));
       sendToSpotifyLogin();
       return;
     }
@@ -79,7 +92,9 @@ function CreateGame() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ hostName, gameName, gameDescription, access_token: localStorage.getItem("access_token"), savePlaylist }),
+          body: JSON.stringify({ hostName: name, gameName: game, 
+                                 gameDescription: desc, access_token: token, 
+                                 savePlaylist: save, promptMode, songAmountToAdd: songAmount }),
         }
       );
 
@@ -98,7 +113,7 @@ function CreateGame() {
 
       // Add to local storage
       localStorage.setItem("playerId", data.host.player_id);
-      localStorage.setItem("playerName", hostName);
+      localStorage.setItem("playerName", name);
       localStorage.setItem("gameId", data.game.game_id);
       localStorage.setItem("isHost", "true");
 
@@ -112,6 +127,11 @@ function CreateGame() {
     }
   }
 
+  function handleSongAmountChange(e) {
+    let value = Number(e.target.value);
+    setSongAmountToAdd(value);
+  }
+
   return (
     <div className="create-game-container">
       <div className="create-game-card">
@@ -119,25 +139,44 @@ function CreateGame() {
         <p>Create a new game</p>
 
         <input
+          type="number"
+          min="1"
+          max="10"
+          pattern="\d+"
+          placeholder="Number of songs"
+          value={songAmountToAdd}
+          onChange={(e) => handleSongAmountChange(e)}
+        />
+
+        <input
           type="text"
-          placeholder="Enter your name"
+          placeholder="Name"
           value={hostName}
           onChange={(e) => setHostName(e.target.value)}
         />
 
         <input
           type="text"
-          placeholder="Enter game name"
+          placeholder="Game name"
           value={gameName}
           onChange={(e) => setGameName(e.target.value)}
         />
 
         <input
           type="text"
-          placeholder="Enter game description"
+          placeholder="Game description"
           value={gameDescription}
           onChange={(e) => setGameDescription(e.target.value)}
         />
+
+        <label>
+          <input 
+              type="checkbox" 
+              checked={promptMode} 
+              onChange={e => setPromptMode(e.target.checked)} 
+          />
+          Prompt mode
+        </label>
 
         <label>
           <input 
@@ -146,7 +185,7 @@ function CreateGame() {
               onChange={e => setSavePlaylist(e.target.checked)} 
           />
           Save playlist after game
-      </label>
+        </label>
 
         {error && <span className="error-text">{error}</span>}
 
