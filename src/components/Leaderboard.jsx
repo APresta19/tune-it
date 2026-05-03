@@ -1,13 +1,14 @@
 import { useEffect } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../../backend/services/socket.js";
 import "../css/Leaderboard.css";
 
 function Leaderboard() 
 {
     const socket = getSocket();
+    const navigate = useNavigate();
     const { state } = useLocation();
-    const { scores, players } = state;
+    const { scores = {}, players = [] } = state || {};
     const { gameId } = useParams();
 
     useEffect(() => {
@@ -20,12 +21,23 @@ function Leaderboard()
         socket.on("roundFinished", (data) => {
             console.log("Round finished, updating leaderboard:", data);
         });
+        socket.on("playAgain", () => {
+            navigate(`/lobby/${gameId}`);
+        });
 
         // Cleanup on unmount
         return () => {
             socket.off("roundFinished");
+            socket.off("playAgain");
         };
     }, []);
+
+    function handlePlayAgain() {
+        socket.emit("playAgain", {
+            gameId,
+            playerId: localStorage.getItem("playerId"),
+        });
+    }
 
     return(
         <div className="leaderboard-container">
@@ -39,8 +51,10 @@ function Leaderboard()
                     </div>
                 ))}
             </div>
-            {/* <button className="primary" onClick={handleNextRound}>Play Again</button> */}
-            <button className="secondary" onClick={() => window.location.href = "/"}>Return to Home</button>
+            <div className="leaderboard-actions">
+                <button className="primary" onClick={handlePlayAgain}>Play Again</button>
+                <button className="secondary" onClick={() => window.location.href = "/"}>Return to Home</button>
+            </div>
         </div>
      );
 }

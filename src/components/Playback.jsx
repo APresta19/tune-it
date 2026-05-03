@@ -6,6 +6,15 @@ import { io } from "socket.io-client";
 import { getSocket } from "../../backend/services/socket.js";
 import { useParams, useNavigate } from "react-router-dom";
 
+let sharedSpotifyPlayer = null;
+let sharedSpotifyDeviceId = null;
+let sharedActivationPromise = Promise.resolve();
+const spotifyCallbacks = {
+    onReady: null,
+    onNotReady: null,
+    onStateChange: null,
+};
+
 function Playback() 
 {
     const player = useRef(null);
@@ -32,6 +41,9 @@ function Playback()
     const [playlistId, setPlaylistId] = useState(null);
     const deviceId = useRef(null);
     const pendingSong = useRef(null);
+    const pendingSongIndex = useRef(null);
+    const currentPlaybackKey = useRef(null);
+    const currentPlayRequest = useRef(0);
 
     const playerId = localStorage.getItem("playerId");
     const playerName = localStorage.getItem("playerName");
@@ -45,10 +57,78 @@ function Playback()
 
         socket.current = getSocket();
 
+        function isCurrentGame(eventGameId) {
+            return String(eventGameId) === String(gameId);
+        }
+
+        function handlePlaySong(song, songIndex) {
+            if (!song) return;
+
+            const playbackKey = `${gameId}:${song.song_id || song.track_uri}:${songIndex ?? 0}`;
+            if (currentPlaybackKey.current === playbackKey) return;
+
+            console.log("playSong event received with song:", song, "songIndex:", songIndex);
+            setPlayerSong(song);
+            setCurrentSongIndex(songIndex);
+            setCurrentTime(song.position || 0);
+            pendingSong.current = song;
+            pendingSongIndex.current = songIndex;
+            console.log("Playing song:", song); // this is right but display isnt
+            console.log("song.duration_ms:", song.duration_ms);
+            latestState.current = { position: 0, duration: song.duration_ms || 0, paused: false };
+            latestStateTime.current = Date.now();
+            setDuration((song.duration_ms || 0) / 1000);
+            if (!deviceId.current) {
+                console.error("Device ID not ready yet");
+                pendingSong.current = song;
+                pendingSongIndex.current = songIndex;
+            }
+            else {
+                playSong(song.track_uri, deviceId.current, playbackKey);
+            }
+        }
+
         const join = () => {
             console.log("Emitting joinGame...");
             socket.current.emit("joinGame", { gameId, playerId, playerName });
         };
+
+        
+        // Listen for events
+        socket.current.on("gameState", (state) => {
+            if (!isCurrentGame(state.game?.game_id)) return;
+
+            console.log("Playback received game state:", state);
+            setRoomPlayerList(state.players);
+            setSongs(state.songs);
+            console.log("State songs:", state.songs);
+            setCurrentSongIndex(state.currentSongIndex);
+
+            if (state.phase === "playing" && state.currentSong) {
+                handlePlaySong(state.currentSong, state.currentSongIndex);
+            }
+        });
+
+        socket.current.on("playSong", ({ gameId: eventGameId, song, songIndex }) => {
+            if (!isCurrentGame(eventGameId)) return;
+            handlePlaySong(song, songIndex);
+        });
+        socket.current.on("roundResult", ({ gameId: eventGameId, correct_player, scores }) => {
+            if (!isCurrentGame(eventGameId)) return;
+            setCorrectPlayer(correct_player);
+            setScores(scores);
+            // End the song
+            endSong();
+        });
+        socket.current.on("roundFinished", ({ gameId: eventGameId, scores }) => {
+            if (!isCurrentGame(eventGameId)) return;
+            setScores(scores);
+            // Maybe show some end of round screen here
+            console.log("Round finished with scores:", scores);
+            player.current?.pause();
+            console.log("Navigating to leaderboard with scores:", scores, "and players:", roomPlayerList);
+            navigate(`/leaderboard/${gameId}`, { state: { scores, players: roomPlayerListRef.current } });
+        });
 
         if (socket.current.connected) {
             // Already connected
@@ -57,51 +137,6 @@ function Playback()
             // First-time connect
             socket.current.on("connect", join);
         }
-
-        
-        // Listen for events
-        socket.current.on("gameState", (state) => {
-            console.log("Playback received game state:", state);
-            setRoomPlayerList(state.players);
-            setSongs(state.songs);
-            console.log("State songs:", state.songs);
-            setCurrentSongIndex(state.currentSongIndex);
-        });
-
-        socket.current.on("playSong", ({ song, songIndex }) => {
-            console.log("playSong event received with song:", song, "songIndex:", songIndex);
-            setPlayerSong(song);
-            setCurrentSongIndex(songIndex);
-            setCurrentTime(song.position || 0);
-            pendingSong.current = song;
-            console.log("Playing song:", song); // this is right but display isnt
-            console.log("Songs: ", songs);
-            console.log("song.duration_ms:", song.duration_ms);
-            latestState.current = { position: 0, duration: song.duration_ms || 0, paused: false };
-            latestStateTime.current = Date.now();
-            setDuration((song.duration_ms || 0) / 1000);
-            if (!deviceId.current) {
-                console.error("Device ID not ready yet");
-                pendingSong.current = song;
-            }
-            else {
-                playSong(song.track_uri, deviceId.current);
-            }
-        });
-        socket.current.on("roundResult", ({ correct_player, scores }) => {
-            setCorrectPlayer(correct_player);
-            setScores(scores);
-            // End the song
-            endSong();
-        });
-        socket.current.on("roundFinished", ({ scores }) => {
-            setScores(scores);
-            // Maybe show some end of round screen here
-            console.log("Round finished with scores:", scores);
-            player.current?.pause();
-            console.log("Navigating to leaderboard with scores:", scores, "and players:", roomPlayerList);
-            navigate(`/leaderboard/${gameId}`, { state: { scores, players: roomPlayerListRef.current } });
-        });
 
         return () => { 
             socket.current.off("connect");
@@ -159,27 +194,13 @@ function Playback()
 
     // Initializes the Spotify Playback SDK
     useEffect(() => {
-        if (player.current) return; 
-        function initializePlayer()
-        {
+        async function activateDevice(id) {
             const token = localStorage.getItem("access_token");
+            deviceId.current = id;
+            console.log('Ready with Device ID', id);
 
-            player.current = new Spotify.Player({
-                name: 'Tune-It Player',
-                getOAuthToken: cb => cb(token),
-                volume: 0.5
-            });
-
-            // Ready
-            player.current.addListener('ready', async ({ device_id }) => {
-                const token = localStorage.getItem("access_token");
-                const id = await getDeviceId(device_id);
-                deviceId.current = id;
-                console.log('Ready with Device ID', id);
-
-                // Switch to Tune-It Player
-                let transferred = false;
-                for (let i = 0; i < 5; i++) { // retry a few times in case Spotify isn't ready
+            sharedActivationPromise = (async () => {
+                for (let i = 0; i < 5; i++) {
                     const transferRes = await fetch("https://api.spotify.com/v1/me/player", {
                         method: "PUT",
                         headers: {
@@ -193,37 +214,72 @@ function Playback()
                     });
                     if (transferRes.ok) {
                         console.log("Successfully transferred playback to Tune-It Player");
-                        transferred = true;
                         break;
                     }
                     console.warn(`Attempt ${i + 1} to transfer playback failed. Status: ${transferRes.status}`);
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retrying
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
+            })();
 
-                if(pendingSong.current) {
-                    console.log("Playing pending song:", pendingSong.current);
-                    await playSong(pendingSong.current.track_uri, id);
-                    pendingSong.current = null;
-                }
-            });
+            await sharedActivationPromise;
 
-            // Not Ready
-            player.current.addListener('not_ready', ({ device_id }) => {
-                console.log('Device ID has gone offline', device_id);
-                deviceId.current = null;
-            });
-
-            // Playback status updates
-            player.current.addListener('player_state_changed', state => {
-                if (!state) return;
-                latestState.current = state;
-                latestStateTime.current = Date.now();
-                setDuration(state.duration / 1000); // convert ms to seconds
-            });
-
-                // Look at spotify api for error listeners
-                player.current.connect();
+            if(pendingSong.current) {
+                console.log("Playing pending song:", pendingSong.current);
+                const song = pendingSong.current;
+                const playbackKey = `${gameId}:${song.song_id || song.track_uri}:${pendingSongIndex.current ?? 0}`;
+                await playSong(song.track_uri, id, playbackKey);
+                pendingSong.current = null;
+                pendingSongIndex.current = null;
+            }
         }
+
+        function initializePlayer() {
+            if (!sharedSpotifyPlayer) {
+                sharedSpotifyPlayer = new Spotify.Player({
+                    name: 'Tune-It Player',
+                    getOAuthToken: cb => cb(localStorage.getItem("access_token")),
+                    volume: 0.5
+                });
+
+                sharedSpotifyPlayer.addListener('ready', ({ device_id }) => {
+                    sharedSpotifyDeviceId = device_id;
+                    spotifyCallbacks.onReady?.({ device_id });
+                });
+
+                sharedSpotifyPlayer.addListener('not_ready', ({ device_id }) => {
+                    if (sharedSpotifyDeviceId === device_id) {
+                        sharedSpotifyDeviceId = null;
+                    }
+                    spotifyCallbacks.onNotReady?.({ device_id });
+                });
+
+                sharedSpotifyPlayer.addListener('player_state_changed', state => {
+                    spotifyCallbacks.onStateChange?.(state);
+                });
+
+                sharedSpotifyPlayer.connect();
+            }
+
+            player.current = sharedSpotifyPlayer;
+
+            if (sharedSpotifyDeviceId) {
+                activateDevice(sharedSpotifyDeviceId);
+            }
+        }
+
+        spotifyCallbacks.onReady = ({ device_id }) => activateDevice(device_id);
+        spotifyCallbacks.onNotReady = ({ device_id }) => {
+            console.log('Device ID has gone offline', device_id);
+            if (deviceId.current === device_id) {
+                deviceId.current = null;
+            }
+        };
+        spotifyCallbacks.onStateChange = state => {
+            if (!state) return;
+            latestState.current = state;
+            latestStateTime.current = Date.now();
+            setDuration(state.duration / 1000);
+        };
             
         if (window.Spotify) {
             console.log("SDK enabled");
@@ -232,7 +288,11 @@ function Playback()
             console.log("SDK disabled");
             window.onSpotifyWebPlaybackSDKReady = initializePlayer;
         }
-        return () => { player.current?.disconnect(); }
+        return () => {
+            if (spotifyCallbacks.onReady) spotifyCallbacks.onReady = null;
+            if (spotifyCallbacks.onNotReady) spotifyCallbacks.onNotReady = null;
+            if (spotifyCallbacks.onStateChange) spotifyCallbacks.onStateChange = null;
+        }
     }, []);
 
     // Playback status updates
@@ -302,13 +362,18 @@ function Playback()
 
     // Was having issues with Spotify not starting playback on the first song with Firefox
     // playSong will retry a few times to give Spotify some time
-    async function playSong(uri, deviceId) {
+    async function playSong(uri, deviceId, playbackKey) {
         const token = localStorage.getItem("access_token");
+        const requestId = currentPlayRequest.current + 1;
+        currentPlayRequest.current = requestId;
+
+        await sharedActivationPromise;
+        if (requestId !== currentPlayRequest.current) return;
+
         console.log("play body:", JSON.stringify({ uris: [uri], position_ms: 0 }));
 
-        let response;
         for (let i = 0; i < 5; i++) { // retry a few times in case Spotify isn't ready
-            response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+            const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
                 method: "PUT",
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -316,44 +381,38 @@ function Playback()
                 },
                 body: JSON.stringify({ uris: [uri], position_ms: 0  })
             });
-            if (response.ok) {
-                console.log("Successfully started playback");
-                break;
+
+            const text = await response.text();
+            console.log("playSong status:", response.status, "response:", text);
+
+            if (!response.ok) {
+                console.warn(`Attempt ${i + 1} to start playback failed. Status: ${response.status}`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
             }
-            console.warn(`Attempt ${i + 1} to start playback failed. Status: ${response.status}`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retrying
-        }
 
-        const text = await response.text();
-        console.log("playSong status:", response.status, "response:", text);
+            if (requestId !== currentPlayRequest.current) return;
 
-         // Seek to 0 explicitly after starting
-         // Had issues with playback starting mid song 
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=0&device_id=${deviceId}`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${token}` }
-        });
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const state = await player.current?.getCurrentState();
+            const activeUri = state?.track_window?.current_track?.uri;
+            console.log("Current Spotify state after play:", state);
 
-        await player.current.resume(); // ensure resume?
+            if (state && activeUri === uri && !state.paused) {
+                latestState.current = state;
+                latestStateTime.current = Date.now();
+                setDuration(state.duration / 1000);
+                currentPlaybackKey.current = playbackKey;
+                console.log("Successfully started Tune-It track:", uri);
+                return;
+            }
 
-        // Issues with navigation bar ONLY on navigation
-        // This bit of code waits until we can get the state
-        // If we still can't get it, we force a state change by pausing and resuming playback
-
-        // Wait for playback to start then seed state
-        await new Promise(resolve => setTimeout(resolve, 800)); // sleep
-        const state = await player.current?.getCurrentState();
-        console.log("Current Spotify state after play:", state);
-        if (state) {
-            latestState.current = state;
-            latestStateTime.current = Date.now();
-            setDuration(state.duration / 1000);
-        } else {
-            // Force a state change event
-            await player.current?.pause();
-            await new Promise(resolve => setTimeout(resolve, 200));
-            await player.current?.resume();
+            console.warn("Spotify did not switch to the requested Tune-It track yet.", {
+                requestedUri: uri,
+                activeUri,
+                paused: state?.paused
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
     }
 

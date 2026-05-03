@@ -6,7 +6,8 @@ export function getSocket()
 {
     if(!socket)
     {
-        socket = io({
+        const socketUrl = import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "");
+        socket = io(socketUrl || undefined, {
             transports: ['websocket', 'polling'],
             autoConnect: true,
             withCredentials: true
