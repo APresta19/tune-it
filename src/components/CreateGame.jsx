@@ -178,15 +178,6 @@ function CreateGame() {
         <label>
           <input 
               type="checkbox" 
-              checked={promptMode} 
-              onChange={e => setPromptMode(e.target.checked)} 
-          />
-          Prompt mode
-        </label>
-
-        <label>
-          <input 
-              type="checkbox" 
               checked={savePlaylist} 
               onChange={e => setSavePlaylist(e.target.checked)} 
           />
