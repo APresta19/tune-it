@@ -376,7 +376,7 @@ function Playback()
         if (!currentSong) return <p>No song playing</p>;
         return (
             <div className="current-song">
-                <img src={currentSong.image_url} alt="album art" className="album-art" />
+                <img src={currentSong.image_url} alt={`${currentSong.track_name} by ${currentSong.track_artist} album art`} className="album-art" />
                 <h3>{currentSong.track_name}</h3>
                 <p>{currentSong.track_artist}</p>
             </div>

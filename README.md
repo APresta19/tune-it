@@ -216,3 +216,24 @@ Use the Vite dev server URL, `http://localhost:3000`, and keep both terminal pro
 ## Stopping the Application
 
 Press `Ctrl + C` in each terminal window running the backend, frontend, or ngrok.
+
+
+## Legal & Attribution
+
+### Copyright
+© 2026 Andrew Presta. All rights reserved.
+
+### Third-Party Services
+This application uses the following third-party services:
+
+- **Spotify Web API** — Used for song search, playlist creation, and music playback.  
+  Spotify is a trademark of Spotify AB. This application is not affiliated with or endorsed by Spotify.  
+  Use of the Spotify API is subject to the [Spotify Developer Terms of Service](https://developer.spotify.com/terms).
+
+- **Spotify Web Playback SDK** — Used to stream audio in the browser.  
+  Subject to the [Spotify Platform Guidelines](https://developer.spotify.com/documentation/design).
+
+### Important Notes
+- This application requires a **Spotify Premium** account for audio playback.
+- This application is a personal/educational project and is not intended for commercial use.
+- Song and album artwork displayed in this application are owned by their respective rights holders.
