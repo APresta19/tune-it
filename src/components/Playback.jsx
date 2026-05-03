@@ -545,9 +545,6 @@ function Playback()
                 {renderRoundResult()}
 
                 <div className={revealed ? "playback-content hidden" : "playback-content"}>
-                    {isHost && (
-                        <button className="secondary" id="togglePlay" onClick={() => handleTogglePlay()}>Play/Pause</button>
-                    )}
                     <h2>Now Playing</h2>
                     {renderCurrentSong()}
                     <ProgressBar currentTime={currentTime} duration={duration} />

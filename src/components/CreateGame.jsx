@@ -38,7 +38,6 @@ function CreateGame() {
         setSavePlaylist(parsed.savePlaylist);
         setPromptMode(parsed.promptMode);
         setSongAmountToAdd(parsed.songAmountToAdd);
-        localStorage.removeItem("pending_game");
         handleCreateGame({ ...parsed, token });
       }
 
@@ -85,18 +84,24 @@ function CreateGame() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/game/create`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ hostName: name, gameName: game, 
-                                 gameDescription: desc, access_token: token, 
-                                 savePlaylist: save, promptMode, songAmountToAdd: songAmount }),
-        }
-      );
+      let response;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        response = await fetch(
+          `${import.meta.env.VITE_API_URL}/game/create`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ hostName: name, gameName: game, 
+                                   gameDescription: desc, access_token: token, 
+                                   savePlaylist: save, promptMode, songAmountToAdd: songAmount }),
+          }
+        );
+
+        if (response.ok || response.status === 401) break;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
 
       if (response.status === 401) {
         // Token is stale. Clear and re-auth
@@ -116,6 +121,7 @@ function CreateGame() {
       localStorage.setItem("playerName", name);
       localStorage.setItem("gameId", data.game.game_id);
       localStorage.setItem("isHost", "true");
+      localStorage.removeItem("pending_game");
 
       // Navigate to lobby page with gameId
       navigate(`/lobby/${data.game.game_id}`);
