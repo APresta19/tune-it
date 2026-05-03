@@ -45,6 +45,7 @@ function JoinGame()
             localStorage.setItem("playerId", data.playerId);
             localStorage.setItem("playerName", playerName);
             localStorage.setItem("gameId", data.gameId);
+            localStorage.setItem("isHost", "false");
 
             navigate(`/lobby/${data.gameId}`);
 

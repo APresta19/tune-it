@@ -43,14 +43,49 @@ function Playback()
     const pendingSong = useRef(null);
     const pendingSongIndex = useRef(null);
     const currentPlaybackKey = useRef(null);
+    const inFlightPlaybackKey = useRef(null);
     const currentPlayRequest = useRef(0);
 
     const playerId = localStorage.getItem("playerId");
     const playerName = localStorage.getItem("playerName");
+    const isHost = localStorage.getItem("isHost") === "true";
     const { gameId } = useParams();
 
 
     const socket = useRef(null);
+
+    function buildPlaybackKey(song, songIndex) {
+        return `${gameId}:${song.song_id || song.track_uri}:${songIndex ?? 0}`;
+    }
+
+    function queueOrPlaySong(song, songIndex) {
+        if (!song) return;
+
+        const playbackKey = buildPlaybackKey(song, songIndex);
+        if (currentPlaybackKey.current === playbackKey || inFlightPlaybackKey.current === playbackKey) return;
+
+        console.log("playSong event received with song:", song, "songIndex:", songIndex);
+        setPlayerSong(song);
+        setCurrentSongIndex(songIndex);
+        setCurrentTime(song.position || 0);
+        pendingSong.current = song;
+        pendingSongIndex.current = songIndex;
+        console.log("Playing song:", song); // this is right but display isnt
+        console.log("song.duration_ms:", song.duration_ms);
+        latestState.current = { position: 0, duration: song.duration_ms || 0, paused: false };
+        latestStateTime.current = Date.now();
+        setDuration((song.duration_ms || 0) / 1000);
+        if (!deviceId.current) {
+            if (isHost) {
+                console.error("Device ID not ready yet");
+                pendingSong.current = song;
+                pendingSongIndex.current = songIndex;
+            }
+        }
+        else if (isHost) {
+            playSong(song, deviceId.current, playbackKey);
+        }
+    }
 
     useEffect(() => {
         // Socket setup
@@ -62,30 +97,7 @@ function Playback()
         }
 
         function handlePlaySong(song, songIndex) {
-            if (!song) return;
-
-            const playbackKey = `${gameId}:${song.song_id || song.track_uri}:${songIndex ?? 0}`;
-            if (currentPlaybackKey.current === playbackKey) return;
-
-            console.log("playSong event received with song:", song, "songIndex:", songIndex);
-            setPlayerSong(song);
-            setCurrentSongIndex(songIndex);
-            setCurrentTime(song.position || 0);
-            pendingSong.current = song;
-            pendingSongIndex.current = songIndex;
-            console.log("Playing song:", song); // this is right but display isnt
-            console.log("song.duration_ms:", song.duration_ms);
-            latestState.current = { position: 0, duration: song.duration_ms || 0, paused: false };
-            latestStateTime.current = Date.now();
-            setDuration((song.duration_ms || 0) / 1000);
-            if (!deviceId.current) {
-                console.error("Device ID not ready yet");
-                pendingSong.current = song;
-                pendingSongIndex.current = songIndex;
-            }
-            else {
-                playSong(song.track_uri, deviceId.current, playbackKey);
-            }
+            queueOrPlaySong(song, songIndex);
         }
 
         const join = () => {
@@ -194,6 +206,8 @@ function Playback()
 
     // Initializes the Spotify Playback SDK
     useEffect(() => {
+        if (!isHost) return;
+
         async function activateDevice(id) {
             const token = localStorage.getItem("access_token");
             deviceId.current = id;
@@ -226,11 +240,20 @@ function Playback()
             if(pendingSong.current) {
                 console.log("Playing pending song:", pendingSong.current);
                 const song = pendingSong.current;
-                const playbackKey = `${gameId}:${song.song_id || song.track_uri}:${pendingSongIndex.current ?? 0}`;
-                await playSong(song.track_uri, id, playbackKey);
+                const playbackKey = buildPlaybackKey(song, pendingSongIndex.current);
+                await playSong(song, id, playbackKey);
                 pendingSong.current = null;
                 pendingSongIndex.current = null;
             }
+
+            fetch(`${import.meta.env.VITE_API_URL}/game/${gameId}/state`)
+                .then(res => res.ok ? res.json() : null)
+                .then(state => {
+                    if (state?.phase === "playing" && state.currentSong) {
+                        queueOrPlaySong(state.currentSong, state.currentSongIndex);
+                    }
+                })
+                .catch(err => console.error("Failed to sync current playback state:", err));
         }
 
         function initializePlayer() {
@@ -360,15 +383,70 @@ function Playback()
         );
     }
 
+    function renderRoundResult() {
+        if (!revealed) return null;
+
+        const correctPlayerName = roomPlayerList.find(player => player.player_id === correctPlayer)?.player_name || "Unknown";
+        const rankedPlayers = [...roomPlayerList].sort((a, b) => {
+            return (scores[b.player_id] || 0) - (scores[a.player_id] || 0);
+        });
+
+        return (
+            <div className="round-result-overlay">
+                <div className="round-result-panel">
+                    <p className="round-result-label">Correct Player</p>
+                    <h2>{correctPlayerName}</h2>
+                    <div className="round-score-list">
+                        {rankedPlayers.map((player, index) => (
+                            <div key={player.player_id} className="round-score-row">
+                                <span className="round-score-rank">{index + 1}</span>
+                                <span className="round-score-name">{player.player_name}</span>
+                                <span className="round-score-value">{scores[player.player_id] || 0}</span>
+                            </div>
+                        ))}
+                    </div>
+                    {displayTimer > 0 && <p className="round-result-next">Next song in {displayTimer}</p>}
+                </div>
+            </div>
+        );
+    }
+
+    function normalizeSpotifyText(value) {
+        return String(value || "")
+            .toLowerCase()
+            .replace(/[^\w\s]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function activeTrackMatchesSong(activeTrack, song) {
+        if (!activeTrack || !song) return false;
+
+        const activeName = normalizeSpotifyText(activeTrack.name);
+        const requestedName = normalizeSpotifyText(song.track_name);
+        const activeArtists = activeTrack.artists?.map(artist => normalizeSpotifyText(artist.name)).join(" ") || "";
+        const requestedArtists = normalizeSpotifyText(song.track_artist);
+
+        return activeName === requestedName && requestedArtists
+            .split(" ")
+            .filter(Boolean)
+            .some(artistPart => activeArtists.includes(artistPart));
+    }
+
     // Was having issues with Spotify not starting playback on the first song with Firefox
     // playSong will retry a few times to give Spotify some time
-    async function playSong(uri, deviceId, playbackKey) {
+    async function playSong(song, deviceId, playbackKey) {
+        const uri = song.track_uri;
         const token = localStorage.getItem("access_token");
         const requestId = currentPlayRequest.current + 1;
         currentPlayRequest.current = requestId;
+        inFlightPlaybackKey.current = playbackKey;
 
         await sharedActivationPromise;
-        if (requestId !== currentPlayRequest.current) return;
+        if (requestId !== currentPlayRequest.current) {
+            if (inFlightPlaybackKey.current === playbackKey) inFlightPlaybackKey.current = null;
+            return;
+        }
 
         console.log("play body:", JSON.stringify({ uris: [uri], position_ms: 0 }));
 
@@ -391,28 +469,49 @@ function Playback()
                 continue;
             }
 
-            if (requestId !== currentPlayRequest.current) return;
-
-            await new Promise(resolve => setTimeout(resolve, 800));
-            const state = await player.current?.getCurrentState();
-            const activeUri = state?.track_window?.current_track?.uri;
-            console.log("Current Spotify state after play:", state);
-
-            if (state && activeUri === uri && !state.paused) {
-                latestState.current = state;
-                latestStateTime.current = Date.now();
-                setDuration(state.duration / 1000);
-                currentPlaybackKey.current = playbackKey;
-                console.log("Successfully started Tune-It track:", uri);
+            if (requestId !== currentPlayRequest.current) {
+                if (inFlightPlaybackKey.current === playbackKey) inFlightPlaybackKey.current = null;
                 return;
             }
 
-            console.warn("Spotify did not switch to the requested Tune-It track yet.", {
-                requestedUri: uri,
-                activeUri,
-                paused: state?.paused
+            await new Promise(resolve => setTimeout(resolve, 100));
+            await fetch(`https://api.spotify.com/v1/me/player/seek?position_ms=0&device_id=${deviceId}`, {
+                method: "PUT",
+                headers: { Authorization: `Bearer ${token}` }
             });
-            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            latestState.current = { position: 0, duration: song.duration_ms || 0, paused: false };
+            latestStateTime.current = Date.now();
+            setDuration((song.duration_ms || 0) / 1000);
+            currentPlaybackKey.current = playbackKey;
+            inFlightPlaybackKey.current = null;
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+            const state = await player.current?.getCurrentState();
+            const activeTrack = state?.track_window?.current_track;
+            const activeUri = activeTrack?.uri;
+            console.log("Current Spotify state after play:", state);
+
+            if (state && !state.paused && (activeUri === uri || activeTrackMatchesSong(activeTrack, song))) {
+                latestState.current = state;
+                latestStateTime.current = Date.now();
+                setDuration(state.duration / 1000);
+                console.log("Successfully started Tune-It track:", uri);
+            }
+
+            if (state && activeUri && activeUri !== uri && !activeTrackMatchesSong(activeTrack, song)) {
+                console.warn("Spotify state reported a different active track after Tune-It play request.", {
+                    requestedUri: uri,
+                    activeUri,
+                    paused: state?.paused
+                });
+            }
+
+            return;
+        }
+
+        if (inFlightPlaybackKey.current === playbackKey) {
+            inFlightPlaybackKey.current = null;
         }
     }
 
@@ -443,38 +542,30 @@ function Playback()
     return (
         <>
             <div className="playback-container">
-                
-                {localStorage.getItem("isHost") === "true" && (
-                    <button className="secondary" id="togglePlay" onClick={() => handleTogglePlay()}>Play/Pause</button>
-                )}
-                <h2>Now Playing</h2>
-                {renderCurrentSong()}
-                <ProgressBar currentTime={currentTime} duration={duration} />
+                {renderRoundResult()}
 
-                <div className="guess-container">
-                    <h2>Guess Who</h2>
-                    <div className="player-list">
-                        {roomPlayerList.map(player => (
-                            <PlayerGuess 
-                            key={player.player_id} 
-                            name={player.player_name} 
-                            disabled={guessId !== null} 
-                            isCorrect={revealed ? player.player_id === correctPlayer : null}
-                            onClick={() => handleGuess(player.player_name)}/>
-                        ))}
+                <div className={revealed ? "playback-content hidden" : "playback-content"}>
+                    {isHost && (
+                        <button className="secondary" id="togglePlay" onClick={() => handleTogglePlay()}>Play/Pause</button>
+                    )}
+                    <h2>Now Playing</h2>
+                    {renderCurrentSong()}
+                    <ProgressBar currentTime={currentTime} duration={duration} />
+
+                    <div className="guess-container">
+                        <h2>Guess Who</h2>
+                        <div className="player-list">
+                            {roomPlayerList.map(player => (
+                                <PlayerGuess 
+                                key={player.player_id} 
+                                name={player.player_name} 
+                                disabled={guessId !== null} 
+                                isCorrect={revealed ? player.player_id === correctPlayer : null}
+                                onClick={() => handleGuess(player.player_name)}/>
+                            ))}
+                        </div>
                     </div>
                 </div>
-
-                { revealed && <h2>Correct Player: {roomPlayerList.find(player => player.player_id === correctPlayer)?.player_name}</h2>}
-                { revealed && <div className="scores">
-                    <h2>Scores:</h2>
-                    {Object.entries(scores).map(([pid, score]) => (
-                        <div key={pid}>
-                            <span className="p-name">{roomPlayerList.find(player => player.player_id === pid)?.player_name}</span>
-                            <span className="score">{score}</span>
-                        </div>
-                    ))}
-                </div>}
             </div>
         </>
     );

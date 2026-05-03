@@ -13,6 +13,8 @@
 }
 .playback-container
 {
+    position: relative;
+    min-height: 720px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -26,6 +28,17 @@
     margin-bottom: 20px;
 
 }
+.playback-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.playback-content.hidden {
+    visibility: hidden;
+}
+
 .progress-bar-container
 {
     width: 80%;
@@ -62,6 +75,90 @@
 }
 .scores .score {
     font-size: 1.2em;
+}
+.round-result-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: var(--white);
+}
+
+.round-result-panel {
+    width: min(460px, 100%);
+    max-height: calc(100% - 40px);
+    overflow: auto;
+    border: 2px solid var(--primary);
+    border-radius: 8px;
+    background: var(--white);
+    box-shadow: 0 14px 36px #00000020;
+    padding: 22px;
+    text-align: center;
+    color: var(--text-primary);
+}
+
+.round-result-label {
+    margin: 0;
+    color: var(--secondary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    color: var(--secondary);
+}
+
+.round-result-panel h2 {
+    margin: 8px 0 18px;
+    color: var(--primary);
+    font-size: 2rem;
+}
+
+.round-score-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.round-score-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 48px;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border: 1px solid #00000012;
+    border-radius: 8px;
+    background: var(--darker-white);
+    text-align: left;
+    color: var(--text-primary);
+}
+
+.round-score-rank {
+    font-weight: 800;
+    color: var(--secondary);
+}
+
+.round-score-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.round-score-value {
+    text-align: right;
+    color: var(--primary);
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+
+.round-result-next {
+    margin: 16px 0 0;
+    color: var(--secondary);
+    font-weight: 700;
 }
 .player-list {
     display: flex;
@@ -106,6 +203,14 @@
 
     .scores div {
         width: 100%;
+    }
+
+    .round-result-panel {
+        padding: 16px;
+    }
+
+    .round-result-panel h2 {
+        font-size: 1.6rem;
     }
 
     .player-list {
