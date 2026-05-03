@@ -55,6 +55,64 @@ export async function addSpotifySongToPlaylist(token, uri_list, playlist_id) {
   return data;
 }
 
+export async function clearSpotifyPlaylist(token, playlist_id) {
+  if (!token) {
+    const error = new Error("No access token provided");
+    error.status = 401;
+    throw error;
+  }
+
+  const tracks = [];
+  let nextUrl = `https://api.spotify.com/v1/playlists/${playlist_id}/tracks?fields=items(track(uri)),next&limit=100`;
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      const error = new Error(data.error?.message || "Spotify playlist fetch failed");
+      error.status = response.status;
+      throw error;
+    }
+
+    tracks.push(...data.items
+          .map((item) => item.track?.uri)
+          .filter(Boolean)
+    );
+    nextUrl = data.next;
+  }
+
+  for (let i = 0; i < tracks.length; i += 100) {
+    const uris = tracks.slice(i, i + 100);
+    const response = await fetch(`https://api.spotify.com/v1/playlists/${playlist_id}/tracks`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tracks: uris.map((uri) => ({ uri }))
+      })
+    });
+
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      const error = new Error(data.error?.message || "Spotify playlist clearing failed");
+      error.status = response.status;
+      throw error;
+    }
+  }
+
+  console.log("Playlist cleared:", playlist_id);
+  return { removed: tracks.length };
+}
+
 export async function getAudioAnalysis(track_id)
 {
   try {

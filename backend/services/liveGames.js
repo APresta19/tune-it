@@ -24,6 +24,7 @@ export function getOrCreateGame(gameId) {
       queue: [], // song queue (should've been more specific)
       savePlaylist: true,
       promptMode: false,
+      cleanupTimeout: null,
     };
   }
   return liveGames[gameId];

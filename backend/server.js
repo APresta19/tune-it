@@ -14,6 +14,7 @@ import { PHASES, getOrCreateGame, getGame, deleteGame, getAllGames } from "./ser
 import { handlePlayerLeave } from "./services/handlePlayerLeave.js";
 import { resumeToPipeableStream } from "react-dom/server";
 import shuffleArray from "./services/shuffleArray.js";
+import { clearSpotifyPlaylist } from "./services/spotifyService.js";
 
 // Load env
 dotenv.config();
@@ -100,6 +101,7 @@ io.on("connection", (socket) => {
     if (gameMemory.phase === PHASES.PLAYING) {
       console.log("Current song: ", gameMemory.currentSong);
       socket.emit("playSong", { 
+        gameId,
         song: gameMemory.currentSong, 
         songIndex: gameMemory.currentSongIndex 
       });
@@ -117,6 +119,68 @@ io.on("connection", (socket) => {
     io.to(`game:${gameId}`).emit("gameState", {...game, phase: PHASES.SELECTING});
   });
 
+  socket.on("playAgain", async ({ gameId, playerId }) => {
+    if (!gameId || !playerId) {
+      socket.emit("error", "Missing gameId or playerId");
+      return;
+    }
+
+    const playerQuery = await pool.query(
+      `
+      SELECT player_id
+      FROM players
+      WHERE player_id = $1 AND game_id = $2
+      `,
+      [playerId, gameId],
+    );
+
+    if (playerQuery.rows.length === 0) {
+      socket.emit("error", "Invalid player");
+      return;
+    }
+
+    const gameMemory = getOrCreateGame(gameId);
+
+    if (gameMemory.cleanupTimeout) {
+      clearTimeout(gameMemory.cleanupTimeout);
+      gameMemory.cleanupTimeout = null;
+    }
+
+    const playlistQuery = await pool.query(`SELECT playlist_id FROM games WHERE game_id = $1`, [gameId]);
+    const playlistId = playlistQuery.rows[0]?.playlist_id;
+    const token = hostTokens[gameId]?.access_token;
+
+    if (playlistId) {
+      try {
+        await clearSpotifyPlaylist(token, playlistId);
+      } catch (err) {
+        console.error("Cannot clear Spotify playlist for replay:", err);
+        socket.emit("error", err.status === 401 ? "Spotify session expired" : "Could not clear Spotify playlist");
+        return;
+      }
+    }
+
+    await pool.query(`DELETE FROM songs WHERE game_id = $1`, [gameId]);
+
+    gameMemory.phase = PHASES.LOBBY;
+    gameMemory.currentSongIndex = 0;
+    gameMemory.currentSong = null;
+    gameMemory.currentRound = 0;
+    gameMemory.correctPlayer = null;
+    gameMemory.who_guessed = [];
+    gameMemory.queue = [];
+    gameMemory.scores = {};
+
+    for (const pid of Object.keys(gameMemory.players)) {
+      gameMemory.players[pid].songsAdded = {};
+      gameMemory.scores[pid] = 0;
+    }
+
+    const game = await getGameState(gameId);
+    io.to(`game:${gameId}`).emit("playAgain");
+    io.to(`game:${gameId}`).emit("gameState", { ...game, phase: PHASES.LOBBY });
+  });
+
   socket.on("submitSongs", async ({ gameId, playerId }) => {
     const gameMemory = getOrCreateGame(gameId);
     console.log("Player ", playerId, " is trying to start game: ", gameId);
@@ -125,6 +189,11 @@ io.on("connection", (socket) => {
     { 
       console.log("No game memory obj.");
       return; 
+    }
+
+    if (gameMemory.phase === PHASES.PLAYING || gameMemory.phase === PHASES.FINISHED) {
+      console.log("Game is already in progress or finished.");
+      return;
     }
 
     // Get all songs per player
@@ -205,6 +274,7 @@ io.on("connection", (socket) => {
     {
       console.log("roundResult triggered");
       io.to(`game:${gameId}`).emit("roundResult", { 
+        gameId,
         correct_player: gameMemory.correctPlayer,
         scores: gameMemory.scores
       })
@@ -286,12 +356,12 @@ async function nextSong(gameId)
   {
     console.log("No next song.");
     gameMemory.phase = PHASES.FINISHED;
-    io.to(`game:${gameId}`).emit("roundFinished", { scores: gameMemory.scores });
+    io.to(`game:${gameId}`).emit("roundFinished", { gameId, scores: gameMemory.scores });
 
     const game = await getGameState(gameId);
     io.to(`game:${gameId}`).emit("gameState", game);
 
-    setTimeout(() => {
+    gameMemory.cleanupTimeout = setTimeout(() => {
         delete hostTokens[gameId];
         deleteGame(gameId);
         pool.query(`DELETE FROM games WHERE game_id = $1`, [gameId]);
@@ -303,8 +373,9 @@ async function nextSong(gameId)
     gameMemory.currentSong = nextSong;
     gameMemory.correctPlayer = nextSong.player_id;
     io.to(`game:${gameId}`).emit("playSong", { 
+      gameId,
       song: nextSong,
-      currentSongIndex: gameMemory.currentSongIndex
+      songIndex: gameMemory.currentSongIndex
     });
   }
 }
