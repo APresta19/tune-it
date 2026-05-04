@@ -57,7 +57,7 @@ function Leaderboard()
                 ))}
             </div>
             <div className="leaderboard-actions">
-                <button className="primary" onClick={handlePlayAgain}>Play Again</button>
+                {/* <button className="primary" onClick={handlePlayAgain}>Play Again</button> */}
                 <button className="secondary" onClick={() => window.location.href = "/"}>Return to Home</button>
             </div>
         </div>
