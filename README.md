@@ -16,7 +16,7 @@ Tune It is a multiplayer web-based music guessing game inspired by Kahoot. A hos
 ## Quick Start Summary
 
 1. Install Node.js, PostgreSQL, and ngrok.
-2. Create the database and run `backend/db/start.sql`.
+2. Create the database and run `backend/db/start.sql` (see Database Setup below).
 3. Start ngrok with `ngrok http 3000`.
 4. Copy the ngrok forwarding URL.
 5. Create `.env` using the ngrok URL.
@@ -39,13 +39,35 @@ For full Spotify playback, the host must use a Spotify Premium account and valid
 
 Create a PostgreSQL database named `tuneit`, or use another name and update `.env` accordingly.
 
-Run the schema file:
-
+**Using psql:**
 ```bash
+psql -U your_postgres_user -c "CREATE DATABASE tuneit;"
 psql -U your_postgres_user -d tuneit -f backend/db/start.sql
 ```
 
-If using pgAdmin or another SQL client, open `backend/db/start.sql` and run the full file against the database.
+**Using pgAdmin:**
+1. Right-click **Databases** → **Create** → **Database**
+2. Name it `tuneit` and save
+3. Open the Query Tool on `tuneit`, paste the contents of `backend/db/start.sql`, and execute
+
+## Installing Ngrok
+
+Ngrok is required for this project setup because Spotify redirects back through the public ngrok URL.
+
+1. Create an account at `https://ngrok.com`.
+2. Download and install ngrok for your operating system.
+3. Open a terminal and authenticate ngrok:
+
+```bash
+ngrok config add-authtoken your_ngrok_auth_token
+```
+
+The auth token is available in the ngrok dashboard after creating an account.
+
+After running `ngrok http 3000`, copy the HTTPS forwarding URL shown in the terminal. It will look like:"
+```bash 
+https://peaceless-protrusive-raphael.ngrok-free.dev
+```
 
 ## Spotify Setup
 
@@ -94,25 +116,6 @@ From the project folder, run:
 
 ```bash
 npm install
-```
-
-## Installing Ngrok
-
-Ngrok is required for this project setup because Spotify redirects back through the public ngrok URL.
-
-1. Create an account at `https://ngrok.com`.
-2. Download and install ngrok for your operating system.
-3. Open a terminal and authenticate ngrok:
-
-```bash
-ngrok config add-authtoken your_ngrok_auth_token
-```
-
-The auth token is available in the ngrok dashboard after creating an account.
-
-After running ngrok http 3000 as instructed below, you should receive an ngrok link that can be used as referenced through the README, some form of 
-```bash 
-https://peaceless-protrusive-raphael.ngrok-free.dev
 ```
 
 ## Running the Application
