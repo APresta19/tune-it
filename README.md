@@ -110,6 +110,11 @@ ngrok config add-authtoken your_ngrok_auth_token
 
 The auth token is available in the ngrok dashboard after creating an account.
 
+After running ngrok http 3000 as instructed below, you should receive an ngrok link that can be used as referenced through the README, some form of 
+```bash 
+https://peaceless-protrusive-raphael.ngrok-free.dev
+```
+
 ## Running the Application
 
 The program can be run from terminal windows without opening the project in a code editor.
