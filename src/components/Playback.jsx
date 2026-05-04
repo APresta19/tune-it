@@ -244,6 +244,7 @@ function Playback()
                 await playSong(song, id, playbackKey);
                 pendingSong.current = null;
                 pendingSongIndex.current = null;
+                return;
             }
 
             fetch(`${import.meta.env.VITE_API_URL}/game/${gameId}/state`)
